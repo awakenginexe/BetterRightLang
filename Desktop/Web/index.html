@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <title>BetterRightLang</title>
+  <link rel="stylesheet" href="settings.css">
+  <script src="settings.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="identity">
+        <div class="key-logo" aria-hidden="true"><b>A</b><b lang="th">ก</b></div>
+        <div><h1>BetterRightLang</h1><p class="pair"><span lang="en">English</span><span aria-hidden="true">⇄</span><span lang="th">ไทย เกษมณี</span></p></div>
+      </div>
+      <label class="language"><span class="sr-only" data-t="language">Display language</span>
+        <select id="language"><option value="en" lang="en">English</option><option value="th" lang="th">ไทย</option></select>
+      </label>
+    </header>
+    <div class="pages" role="tablist" aria-label="BetterRightLang">
+      <button id="settings-tab" role="tab" aria-selected="true" aria-controls="settings-page" data-t="settings">Settings</button>
+      <button id="history-tab" role="tab" aria-selected="false" aria-controls="history-page" tabindex="-1" data-t="history">History</button>
+    </div>
+    <div class="notice" id="notice" role="alert" hidden></div>
+    <section id="settings-page" role="tabpanel" aria-labelledby="settings-tab">
+    <fieldset class="mode-group">
+      <legend data-t="mode">Correction mode</legend>
+      <div class="modes">
+        <label><input type="radio" name="mode" value="Auto" checked><span class="mode-title"><span class="indicator"></span><strong data-t="auto">Automatic</strong></span><span class="description" data-t="autoHint">Switch when a word fits the other layout.</span></label>
+        <label><input type="radio" name="mode" value="Manual"><span class="mode-title"><span class="indicator"></span><strong data-t="manual">Manual</strong></span><span class="description" data-t="manualHint">Correct text with a keyboard shortcut.</span></label>
+        <label><input type="radio" name="mode" value="Paused"><span class="mode-title"><span class="indicator"></span><strong data-t="paused">Paused</strong></span><span class="description" data-t="pausedHint">Turn off corrections and shortcuts.</span></label>
+      </div>
+    </fieldset>
+    <div class="columns">
+      <section class="tester" aria-labelledby="test-title">
+        <h2 id="test-title" data-t="tester">Practice typing</h2>
+        <p class="helper" id="practice-hint" data-t="testerHint">Try typing the example on the English layout. Automatic mode can switch as you type. In Manual mode, press Shift + Backspace to convert the word.</p>
+        <label class="field" for="sample" data-t="sample">Practice text</label>
+        <input id="sample" type="text" placeholder="l;ylfurujg0wf" aria-describedby="practice-hint" autocomplete="off" spellcheck="false" autocapitalize="off" dir="auto">
+      </section>
+      <section class="shortcuts" aria-labelledby="keys-title">
+        <h2 id="keys-title" data-t="shortcuts">Keyboard shortcuts</h2>
+        <dl class="bindings">
+          <div><dt data-t="current">Convert current word</dt><dd><kbd>Shift</kbd><span>+</span><kbd>Backspace</kbd></dd></div>
+          <div><dt data-t="selection">Convert selection</dt><dd><kbd>Shift</kbd><span>+</span><kbd>Caps Lock</kbd></dd></div>
+          <div><dt data-t="toggle">Switch Auto / Manual</dt><dd><kbd>Ctrl</kbd><span>+</span><kbd>Caps Lock</kbd></dd></div>
+        </dl>
+      </section>
+    </div>
+    <footer>
+      <label class="startup">
+        <span><strong data-t="startup">Start with Windows</strong><small data-t="startupHint">Open in the tray when you sign in.</small></span>
+        <input id="startup" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span>
+      </label>
+    </footer>
+    </section>
+    <section id="history-page" role="tabpanel" aria-labelledby="history-tab" hidden>
+      <div class="history-layout">
+        <section aria-labelledby="recent-title">
+          <h2 id="recent-title" data-t="recent">Recent corrections</h2>
+          <p class="helper" data-t="historyHint">Your last 100 corrected words stay here until you quit BetterRightLang.</p>
+          <p class="empty" id="no-history" data-t="noHistory">No corrections this session.</p>
+          <ol id="corrections" class="word-list"></ol>
+        </section>
+        <section class="whitelist-panel" aria-labelledby="whitelist-title">
+          <h2 id="whitelist-title" data-t="whitelist">Whitelist</h2>
+          <p class="helper" data-t="whitelistHint">Automatic mode keeps these spellings. Your list is saved on this PC.</p>
+          <form id="whitelist-form" autocomplete="off">
+            <label class="field" for="whitelist-word" data-t="wordLabel">Word to whitelist</label>
+            <div class="add-word"><input id="whitelist-word" type="text" maxlength="4096" required spellcheck="false" autocapitalize="off" dir="auto"><button type="submit" data-t="add">Add</button></div>
+          </form>
+          <p class="empty" id="no-words" data-t="noWords">No whitelisted words yet.</p>
+          <ul id="whitelist" class="word-list"></ul>
+        </section>
+      </div>
+      <p id="word-status" role="status" class="sr-only"></p>
+    </section>
+  </main>
+</body>
+</html>

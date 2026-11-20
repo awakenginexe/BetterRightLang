@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="Core/BetterRightLang.Core.csproj" />
+  <Project Path="Desktop/BetterRightLang.csproj" />
+  <Folder Name="/Tests/">
+    <Project Path="tests/Core/BetterRightLang.Core.Tests.csproj" />
+    <Project Path="tests/Desktop/BetterRightLang.Desktop.Tests.csproj" />
+    <Project Path="tests/Input/BetterRightLang.Input.Tests.csproj" />
+    <Project Path="tests/Live/BetterRightLang.Live.Tests.csproj" />
+  </Folder>
+</Solution>

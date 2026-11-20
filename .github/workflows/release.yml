@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: ${{ !github.event.deleted }}
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run Core tests
+        run: dotnet run --project tests/Core -c Release
+      - name: Run Input tests
+        run: dotnet run --project tests/Input -c Release
+      - name: Run Desktop tests
+        run: dotnet run --project tests/Desktop -c Release
+
+      - name: Build Windows x64 package
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          dotnet publish Desktop -c Release -r win-x64 --self-contained false -p:Version=$version -o dist/BetterRightLang
+
+      - name: Zip published files
+        run: Compress-Archive -Path dist/BetterRightLang -DestinationPath "dist/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$env:GITHUB_REF_NAME" "dist/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip" --repo "$env:GITHUB_REPOSITORY" --verify-tag --generate-notes
