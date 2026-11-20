@@ -1,40 +1,62 @@
 # BetterRightLang
 
-BetterRightLang corrects text typed on the wrong US English or Thai Kedmanee keyboard layout. It runs as a Windows tray app. The settings window uses the installed Microsoft Edge WebView2 Runtime and can be closed while corrections continue.
+BetterRightLang ช่วยแก้ข้อความที่พิมพ์ผิดภาษาระหว่างแป้นพิมพ์อังกฤษ (สหรัฐฯ) กับไทยเกษมณี โปรแกรมทำงานจากไอคอนในถาดระบบของ Windows แม้ปิดหน้าตั้งค่าแล้วก็ยังแก้คำได้ตามโหมดที่เลือก
 
-## Use
+## ติดตั้งบน Windows
 
-Download and run the Windows x64 **Setup.exe**. Setup adds BetterRightLang to the Start menu and installs the .NET 10 Desktop Runtime and Evergreen WebView2 Runtime if needed. For portable use, install those runtimes, extract the full ZIP, and open **BetterRightLang.exe**. [GitHub Releases](https://github.com/awakenginexe/BetterRightLang/releases)
+- **ติดตั้งตามปกติ** ดาวน์โหลดตัวติดตั้งสำหรับ Windows x64 แล้วเปิดไฟล์ที่ชื่อลงท้ายด้วย `Setup.exe` ตัวติดตั้งจะเพิ่ม BetterRightLang ในเมนูเริ่ม และติดตั้ง .NET 10 Desktop Runtime กับ Microsoft Edge WebView2 Runtime ให้หากเครื่องยังไม่มี [ดาวน์โหลดจาก GitHub](https://github.com/awakenginexe/BetterRightLang/releases)
+- **ใช้แบบพกพา** ติดตั้งรันไทม์ทั้งสองรายการแยกต่างหาก แตกไฟล์ ZIP ทั้งชุด แล้วเปิด `BetterRightLang.exe` จากโฟลเดอร์ที่แตกไฟล์
 
-Quit any running copy of RightLang or BetterRightLang before opening a different copy. Enable the US English and Thai Kedmanee keyboard layouts in Windows.
+ก่อนเปิดโปรแกรม ให้ปิด RightLang หรือ BetterRightLang ตัวที่กำลังทำงานอยู่ แล้วเปิดใช้แป้นพิมพ์อังกฤษ (สหรัฐฯ) และไทยเกษมณีในการตั้งค่าของ Windows
 
-| Mode | Tray icon | Behavior |
+## เริ่มใช้งาน
+
+ดับเบิลคลิกไอคอน BetterRightLang ใกล้นาฬิกา หรือเปิด `BetterRightLang.exe` อีกครั้งเพื่อเข้าหน้าตั้งค่า เลือกโหมดแล้วลองพิมพ์ `l;ylfurujg0wf` ด้วยแป้นพิมพ์อังกฤษในช่อง **ฝึกพิมพ์** แป้นชุดเดียวกันบนแป้นพิมพ์ไทยจะได้คำว่า **สวัสดีพี่เจได**
+
+| โหมด | สีไอคอน | การทำงาน |
 | --- | --- | --- |
-| Automatic | Green | Compares the typed word with both offline dictionaries and switches the active keyboard layout when it applies a correction. |
-| Manual | Yellow | Leaves typing alone until you use a conversion shortcut. |
-| Paused | Grey | Suspends correction and releases the shortcuts. Resume from the tray or settings. |
+| อัตโนมัติ | เขียว | เทียบคำที่พิมพ์กับพจนานุกรมทั้งสองภาษาในเครื่อง เมื่อแก้คำแล้วจะสลับภาษาแป้นพิมพ์ให้ด้วย |
+| แก้ด้วยตนเอง | เหลือง | แปลงข้อความเมื่อกดปุ่มลัด |
+| หยุดชั่วคราว | เทา | พักการแก้คำและปิดปุ่มลัด เลือกโหมดอื่นจากไอคอนในถาดระบบหรือหน้าตั้งค่าเพื่อเริ่มใช้อีกครั้ง |
 
-Windows shows a tray notification when you change modes or when BetterRightLang applies a correction. Correction notifications show the direction, such as **English → Thai**. The words themselves appear in the session's **History** page. Windows notification settings control banner visibility.
+ในโหมดอัตโนมัติ โปรแกรมจะเก็บคำเดิมไว้ถ้ายังพิมพ์ต่อให้เป็นคำในพจนานุกรมได้ โดยจะเริ่มเทียบกับอีกภาษาตั้งแต่กดแป้นที่สาม และจับคำไทยหลายคำที่พิมพ์ติดกันได้
 
-| Shortcut | Action |
+Windows จะแจ้งเตือนเมื่อเปลี่ยนโหมดหรือเมื่อโปรแกรมแก้คำ การแจ้งเตือนการแก้คำจะแสดงทิศทาง เช่น **อังกฤษ → ไทย** ส่วนคำที่แก้จะอยู่ในหน้า **ประวัติ** ปรับการแสดงแบนเนอร์ได้ในการตั้งค่าการแจ้งเตือนของ Windows
+
+เปิด **เริ่มพร้อม Windows** ในหน้าตั้งค่าเพื่อให้โปรแกรมเปิดในถาดระบบเมื่อเข้าสู่ระบบ
+
+### ปุ่มลัด
+
+| ปุ่มลัด | ใช้ทำอะไร |
 | --- | --- |
-| Shift + Backspace | Convert the current word. |
-| Shift + Caps Lock | Convert the selected text, preserving whitespace. |
-| Ctrl + Caps Lock | Toggle Automatic and Manual while keeping your current Caps Lock state. |
+| `Shift + Backspace` | แปลงคำที่กำลังพิมพ์ |
+| `Shift + Caps Lock` | แปลงข้อความที่เลือก โดยคงช่องว่างและการขึ้นบรรทัดไว้ |
+| `Ctrl + Caps Lock` | สลับระหว่างโหมดอัตโนมัติกับโหมดแก้ด้วยตนเอง โดยคงสถานะ Caps Lock เดิม |
 
-Holding either Caps Lock shortcut triggers it once. Pressing Caps Lock on its own works normally.
+เมื่อกดปุ่มลัดที่ใช้ Caps Lock ค้างไว้ คำสั่งจะทำงานครั้งเดียว กด Caps Lock เพียงปุ่มเดียวได้ตามปกติ
 
-Try typing **l;ylfurujg0wf** on the English layout. The same keys on the Thai layout spell **สวัสดีพี่เจได**. The settings practice field lets you try the selected mode directly. Double-click the tray icon or run the executable again to open settings. **Start with Windows** launches directly in the tray.
+## อัปเดตจากในโปรแกรม
 
-Auto keeps a word when its current spelling can still grow into a known word. It looks for evidence in the other layout starting at the third key and can recognize several Thai words typed together.
+1. เปิด **การตั้งค่า** แล้วกด **ตรวจสอบการอัปเดต**
+2. เมื่อพบรุ่นใหม่ ให้กด **อัปเดตและเปิดแอปใหม่** โปรแกรมจะดาวน์โหลด อัปเดต และเปิดใหม่โดยเก็บการตั้งค่าและรายการคำยกเว้นไว้
 
-Open **History** in the settings window to see the last 100 corrected words from this session, newest first. Each entry shows the original spelling, replacement and whether a shortcut or Automatic mode made the change. Choose **Whitelist original** to keep that spelling in Automatic mode. You can also add or remove words directly on this page. Saved words are protected as you type, including English case variants. Manual shortcuts can still convert them.
+ฟีเจอร์นี้ใช้ได้กับรุ่นที่ดาวน์โหลดจาก GitHub ตั้งแต่ v0.1.6 เป็นต้นไป โปรแกรมจะตรวจหารุ่นใหม่ได้เมื่อที่เก็บโค้ดบน GitHub เปิดเป็นสาธารณะ
 
-BetterRightLang checks the active field and word before editing. If more keys arrive during a browser correction, it holds them in memory until the caret is back in place and replays them in order. Standard Windows edit controls support current-word correction in long documents. In other editors, a current-word correction requires verifiable field boundaries and at most 4,096 UTF-16 code units of surrounding text. Manual selection supports up to 4,096 UTF-16 code units. Protected fields are skipped. The detector uses local dictionaries. Correction history lives in memory while the tray app runs. Closing settings keeps the session going. **Quit BetterRightLang** in the tray clears it. The whitelist is stored in **%LOCALAPPDATA%\BetterRightLang\settings.json**.
+## ประวัติและคำยกเว้น
 
-## Build
+- หน้า **ประวัติ** แสดงคำที่แก้แล้วสูงสุด 100 รายการ เรียงจากใหม่ไปเก่า แต่ละรายการระบุคำเดิม คำที่แก้แล้ว และวิธีที่ใช้แก้ โปรแกรมเก็บประวัติไว้ในหน่วยความจำและล้างเมื่อเลือก **ปิด BetterRightLang** จากถาดระบบ
+- กด **ยกเว้นคำเดิม** เพื่อให้โหมดอัตโนมัติเก็บการสะกดเดิมไว้ หรือเพิ่มและลบคำได้ในส่วน **คำยกเว้น** คำภาษาอังกฤษที่ต่างกันเฉพาะตัวพิมพ์เล็กหรือใหญ่จะได้รับการยกเว้นด้วย ปุ่มลัดยังแปลงคำเหล่านี้ได้ตามปกติ
+- โปรแกรมบันทึกรายการคำยกเว้นไว้ที่ `%LOCALAPPDATA%\BetterRightLang\settings.json`
 
-Use the .NET 10 SDK on 64-bit Windows. The framework-dependent build requires the .NET 10 Desktop Runtime and the Evergreen WebView2 Runtime.
+### ขอบเขตการแก้ข้อความ
+
+โปรแกรมตรวจช่องที่กำลังพิมพ์และคำที่จะเปลี่ยนก่อนแก้ ในเบราว์เซอร์ หากกดแป้นเพิ่มระหว่างที่กำลังแก้คำ โปรแกรมจะเก็บการกดแป้นไว้ชั่วคราว แล้วส่งกลับตามลำดับเมื่อตำแหน่งพิมพ์กลับเข้าที่
+
+ช่องข้อความมาตรฐานของ Windows รองรับการแก้คำในเอกสารยาว ช่องพิมพ์แบบอื่นต้องตรวจสอบขอบเขตของช่องได้ และข้อความรอบตำแหน่งพิมพ์ต้องยาวไม่เกิน 4,096 หน่วยรหัส UTF-16 การแปลงข้อความที่เลือกเองรองรับสูงสุด 4,096 หน่วยรหัสเช่นกัน โปรแกรมจะข้ามช่องพิมพ์ที่ได้รับการป้องกัน
+
+## สร้างและทดสอบจากซอร์สโค้ด
+
+ใช้ .NET 10 SDK บน Windows 64 บิต เครื่องที่ใช้รันโปรแกรมจากคำสั่งด้านล่างต้องมี .NET 10 Desktop Runtime และ Microsoft Edge WebView2 Runtime
 
 ~~~powershell
 dotnet run --project Desktop
@@ -44,24 +66,25 @@ dotnet run --project tests/Desktop -c Release
 dotnet publish Desktop -c Release -r win-x64 --self-contained false -o dist/BetterRightLang
 ~~~
 
-Keep the published files together when moving the app.
+หากย้ายโปรแกรมที่สร้างแล้ว ให้ย้ายทั้งโฟลเดอร์ `dist/BetterRightLang` เพื่อเก็บไฟล์ที่ต้องใช้ไว้ด้วยกัน
 
-To check the published app in Brave's Google search box, run the command below with the app in Automatic or Manual mode. It opens a disposable Brave profile, briefly takes keyboard focus and checks the field and its active keyboard layout. It types the example without submitting a search.
+### ทดสอบการพิมพ์ใน Brave
+
+ตั้งโปรแกรมไว้ในโหมดอัตโนมัติหรือโหมดแก้ด้วยตนเอง แล้วรันคำสั่งด้านล่าง การทดสอบจะเปิดโปรไฟล์ Brave ชั่วคราว สลับโฟกัสแป้นพิมพ์ไปที่ช่องค้นหา Google แล้วตรวจผลการพิมพ์และภาษาแป้นพิมพ์ที่ใช้งาน คำทดสอบจะอยู่ในช่องค้นหาโดยไม่มีการส่งคำค้น
 
 ~~~powershell
 dotnet run --project tests/Live -c Release -- --run --target brave-google --app dist/BetterRightLang/BetterRightLang.exe
 ~~~
 
-Use `--target brave-local` with `--case overlap`, `overlap-early`, `overlap-burst` or `overlap-auto` to hold a disposable Brave editor before or during a correction and check that typing through it preserves the word, surrounding text and caret.
+ใช้ `--target brave-local` แล้วระบุ `--case` เป็น `overlap`, `overlap-early`, `overlap-burst` หรือ `overlap-auto` เพื่อทดสอบการพิมพ์ต่อเนื่องทั้งก่อนและระหว่างที่โปรแกรมแก้คำในหน้าทดสอบของ Brave แต่ละกรณีจะตรวจทั้งคำที่แก้ ข้อความรอบข้าง และตำแหน่งพิมพ์
 
-## Release
+## เผยแพร่รุ่นใหม่
 
-In a release build, open **Settings → Check for updates**. When a new version is available, choose **Update and restart**. The app keeps your saved settings and whitelist. The updater reads GitHub Releases without credentials and needs the repository to be public.
+ส่งแท็กแบบ `vMAJOR.MINOR.PATCH` ขึ้น GitHub แล้ว GitHub Actions จะรันชุดทดสอบ Core, Input และ Desktop ใช้เลขรุ่นจากแท็ก และเผยแพร่ตัวติดตั้ง Windows x64 ไฟล์ ZIP แบบพกพา ตลอดจนไฟล์รายการรุ่นและแพ็กเกจอัปเดตของ Velopack
 
-Push a tag in `vMAJOR.MINOR.PATCH` format. GitHub Actions runs the Core, Input and Desktop tests, sets the app version from the tag, and publishes the Windows x64 installer, portable ZIP, and Velopack update feed and package.
+## ที่มาและสัญญาอนุญาต
 
-## Sources and licenses
-
-The new application code is [MIT-licensed](LICENSE). English words come from SCOWL and Thai words from LibThai. [Dictionary sources, modifications and licenses](Data/README.md) accompany the application. The distribution also includes the [Velopack license](Desktop/Notices/Velopack-LICENSE.txt) and Microsoft's WebView2 notices.
-
-RightLang 1.1.4312 supplied the behavioral reference for the two modes, keyboard shortcuts and compound-word handling. BetterRightLang has its own detector and word lists. [Original RightLang guide](https://www.rightlang.com/index.html)
+- โค้ดของ BetterRightLang ใช้สัญญาอนุญาต [MIT](LICENSE)
+- รายการคำภาษาอังกฤษมาจาก SCOWL และรายการคำภาษาไทยมาจาก LibThai [ที่มา การปรับแก้ และสัญญาอนุญาตของพจนานุกรม](Data/README.md)
+- ชุดติดตั้งมีประกาศสิทธิ์ของ Microsoft WebView2 และ [สัญญาอนุญาตของ Velopack](Desktop/Notices/Velopack-LICENSE.txt)
+- BetterRightLang อ้างอิง RightLang 1.1.4312 ในเรื่องโหมดการแก้คำสองแบบ ปุ่มลัด และการจัดการคำประสม โดยใช้ตัวตรวจจับและรายการคำของ BetterRightLang เอง [คู่มือ RightLang ต้นฉบับ](https://www.rightlang.com/index.html)
