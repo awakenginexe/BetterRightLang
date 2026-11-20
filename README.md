@@ -4,7 +4,9 @@ BetterRightLang corrects text typed on the wrong US English or Thai Kedmanee key
 
 ## Use
 
-Download the Windows x64 ZIP from [GitHub Releases](https://github.com/awakenginexe/BetterRightLang/releases), extract it and open **BetterRightLang.exe**. The app requires the .NET 10 Desktop Runtime and the Evergreen WebView2 Runtime. If RightLang is already running, quit it from its tray menu before using BetterRightLang so both apps do not compete for the same shortcuts. Enable the US English and Thai Kedmanee keyboard layouts in Windows.
+Download and run the Windows x64 **Setup.exe**. Setup adds BetterRightLang to the Start menu and installs the .NET 10 Desktop Runtime and Evergreen WebView2 Runtime if needed. For portable use, install those runtimes, extract the full ZIP, and open **BetterRightLang.exe**. [GitHub Releases](https://github.com/awakenginexe/BetterRightLang/releases)
+
+Quit any running copy of RightLang or BetterRightLang before opening a different copy. Enable the US English and Thai Kedmanee keyboard layouts in Windows.
 
 | Mode | Tray icon | Behavior |
 | --- | --- | --- |
@@ -54,10 +56,12 @@ Use `--target brave-local` with `--case overlap`, `overlap-early`, `overlap-burs
 
 ## Release
 
-Push a tag in `vMAJOR.MINOR.PATCH` format. GitHub Actions runs the Core, Input and Desktop tests, sets the app version from the tag and publishes a Windows x64 ZIP with generated release notes.
+In a release build, open **Settings → Check for updates**. When a new version is available, choose **Update and restart**. The app keeps your saved settings and whitelist. The updater reads GitHub Releases without credentials and needs the repository to be public.
+
+Push a tag in `vMAJOR.MINOR.PATCH` format. GitHub Actions runs the Core, Input and Desktop tests, sets the app version from the tag, and publishes the Windows x64 installer, portable ZIP, and Velopack update feed and package.
 
 ## Sources and licenses
 
-The new application code is [MIT-licensed](LICENSE). English words come from SCOWL and Thai words from LibThai. [Dictionary sources, modifications and licenses](Data/README.md) accompany the application. The WebView2 SDK carries Microsoft's separate redistribution terms.
+The new application code is [MIT-licensed](LICENSE). English words come from SCOWL and Thai words from LibThai. [Dictionary sources, modifications and licenses](Data/README.md) accompany the application. The distribution also includes the [Velopack license](Desktop/Notices/Velopack-LICENSE.txt) and Microsoft's WebView2 notices.
 
 RightLang 1.1.4312 supplied the behavioral reference for the two modes, keyboard shortcuts and compound-word handling. BetterRightLang has its own detector and word lists. [Original RightLang guide](https://www.rightlang.com/index.html)

@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Windows.Forms;
 using BetterRightLang.Core;
+using Velopack;
 
 namespace BetterRightLang.Desktop;
 
@@ -11,6 +12,11 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
+        VelopackApp.Build()
+            .OnAfterInstallFastCallback(_ => TrayApp.SyncStartupOnInstall(uninstall: false))
+            .OnBeforeUninstallFastCallback(_ => TrayApp.SyncStartupOnInstall(uninstall: true))
+            .Run();
+
         var inTray = Array.Exists(args, a => a == "--tray");
         using var openSettings = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\BetterRightLang.ShowSettings.v1");
         using var instance = new Mutex(false, @"Local\BetterRightLang.Instance.v1");

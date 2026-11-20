@@ -32,10 +32,29 @@ jobs:
           $version = $env:GITHUB_REF_NAME.Substring(1)
           dotnet publish Desktop -c Release -r win-x64 --self-contained false -p:Version=$version -o dist/BetterRightLang
 
-      - name: Zip published files
-        run: Compress-Archive -Path dist/BetterRightLang -DestinationPath "dist/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip"
+      - name: Install Velopack CLI
+        run: dotnet tool install vpk --version 1.2.161 --tool-path "$env:RUNNER_TEMP/velopack"
+
+      - name: Build installer and update packages
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          & "$env:RUNNER_TEMP/velopack/vpk.exe" pack --packId awakenginexe.BetterRightLang --packTitle BetterRightLang `
+            --packAuthors awakenginexe --packVersion $version --packDir dist/BetterRightLang --outputDir dist/release `
+            --mainExe BetterRightLang.exe --runtime win-x64 --channel win --framework net10.0-x64-desktop,webview2 `
+            --icon Desktop/Assets/app.ico --shortcuts StartMenuRoot
+          Move-Item -LiteralPath dist/release/awakenginexe.BetterRightLang-win-Setup.exe `
+            -Destination "dist/release/BetterRightLang-$env:GITHUB_REF_NAME-win-x64-Setup.exe"
+          Move-Item -LiteralPath dist/release/awakenginexe.BetterRightLang-win-Portable.zip `
+            -Destination "dist/release/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip"
 
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$env:GITHUB_REF_NAME" "dist/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip" --repo "$env:GITHUB_REPOSITORY" --verify-tag --generate-notes
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          gh release create "$env:GITHUB_REF_NAME" `
+            "dist/release/BetterRightLang-$env:GITHUB_REF_NAME-win-x64-Setup.exe" `
+            "dist/release/BetterRightLang-$env:GITHUB_REF_NAME-win-x64.zip" `
+            "dist/release/awakenginexe.BetterRightLang-$version-full.nupkg" `
+            dist/release/releases.win.json --repo "$env:GITHUB_REPOSITORY" --verify-tag --generate-notes

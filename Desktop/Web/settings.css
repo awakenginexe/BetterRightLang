@@ -58,6 +58,9 @@ kbd { padding: 1px 6px; border: 1px solid var(--key-edge); border-bottom-width: 
 footer { padding-top: 15px; border-top: 1px solid var(--line); }
 .startup { justify-content: space-between; gap: 12px; cursor: pointer; position: relative; padding-bottom: 6px; }
 .startup small { display: block; margin-top: 1px; }
+.updates { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); }
+.updates p { margin-bottom: 0; }
+.updates p:empty { margin: 0; }
 .switch { display: inline-flex; width: 38px; height: 22px; padding: 3px; align-items: center; border: 1px solid var(--key-edge); border-radius: 12px; background: var(--key); flex: none; }
 .switch::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--sub); }
 .startup:hover .switch { border-color: var(--accent); }
@@ -78,8 +81,10 @@ footer { padding-top: 15px; border-top: 1px solid var(--line); }
 .word-list small { display: block; color: var(--sub); font-size: 12px; margin-top: 2px; }
 .word-list .result { font-weight: 600; }
 .word-list .arrow { color: var(--sub); margin: 0 .4em; }
-.history-layout button { flex: none; background: var(--surface); color: var(--accent); border: 1px solid var(--key-edge); border-radius: 5px; padding: 5px 9px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-.history-layout button:hover { border-color: var(--accent); }
+.history-layout button, .updates button { flex: none; background: var(--surface); color: var(--accent); border: 1px solid var(--key-edge); border-radius: 5px; padding: 5px 9px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.history-layout button:hover, .updates button[aria-disabled=false]:hover { border-color: var(--accent); }
+.updates button { min-height: 32px; }
+.updates button[aria-disabled=true] { color: var(--sub); cursor: default; }
 .history-layout button[aria-disabled=true] { color: var(--sub); border-color: transparent; background: transparent; cursor: default; }
 .add-word { display: flex; gap: 7px; }
 .add-word input { min-width: 0; width: 100%; border: 1px solid var(--key-edge); border-radius: 5px; padding: 6px 9px; font: inherit; background: var(--surface); color: var(--ink); }

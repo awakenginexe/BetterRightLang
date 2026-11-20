@@ -4,16 +4,27 @@ const bridge = window.chrome?.webview;
 const language = document.querySelector("#language");
 const startup = document.querySelector("#startup");
 const notice = document.querySelector("#notice");
+const appVersion = document.querySelector("#app-version");
+const updateStatus = document.querySelector("#update-status");
+const updateButton = document.querySelector("#update-button");
 const labels = Array.from(document.querySelectorAll("[data-t]"));
 const english = Object.fromEntries(labels.map(node => [node.dataset.t, node.textContent]));
 Object.assign(english, { keep: "Whitelist original", kept: "Whitelisted", remove: "Remove",
-  oneWord: "Enter one word without spaces.", added: "Added to the whitelist", removed: "Removed from the whitelist" });
+  oneWord: "Enter one word without spaces.", added: "Added to the whitelist", removed: "Removed from the whitelist",
+  version: "Version {version}", checkUpdates: "Check for updates", installUpdate: "Update and restart",
+  updateUnavailable: "Use a GitHub release build to update from the app.", updateChecking: "Checking GitHub…",
+  updateCurrent: "You’re up to date.", updateAvailable: "Version {version} is available.",
+  updateDownloading: "Downloading version {version}…", updateFailed: "Update failed. Check that GitHub Releases is reachable and try again." });
 const thai = {
   language: "ภาษาที่แสดง", mode: "โหมดการแก้ไข", auto: "อัตโนมัติ", manual: "แก้ด้วยตนเอง", paused: "หยุดชั่วคราว",
   autoHint: "สลับภาษาเมื่อคำที่พิมพ์ตรงกับอีกแป้นพิมพ์", manualHint: "กดปุ่มลัดเพื่อแก้ข้อความที่พิมพ์", pausedHint: "พักการแก้ไขและปิดปุ่มลัด",
   tester: "ฝึกพิมพ์", testerHint: "ลองพิมพ์ตัวอย่างโดยใช้แป้นพิมพ์ภาษาอังกฤษ โหมดอัตโนมัติจะสลับภาษาเมื่อจำคำที่พิมพ์ได้ ส่วนโหมดแก้ด้วยตนเองให้กด Shift + Backspace เพื่อแปลงคำ", sample: "ข้อความสำหรับฝึกพิมพ์",
   shortcuts: "ปุ่มลัด", current: "แปลงคำที่เพิ่งพิมพ์", selection: "แปลงข้อความที่เลือก", toggle: "สลับโหมดอัตโนมัติ / แก้ด้วยตนเอง",
   startup: "เริ่มพร้อม Windows", startupHint: "เปิดในถาดระบบเมื่อเข้าสู่ระบบ",
+  version: "เวอร์ชัน {version}", checkUpdates: "ตรวจสอบการอัปเดต", installUpdate: "อัปเดตและเปิดแอปใหม่",
+  updateUnavailable: "ใช้แอปจาก GitHub Releases เพื่ออัปเดตผ่านแอป", updateChecking: "กำลังตรวจสอบบน GitHub…",
+  updateCurrent: "คุณใช้เวอร์ชันล่าสุดแล้ว", updateAvailable: "มีเวอร์ชัน {version} ให้ดาวน์โหลด",
+  updateDownloading: "กำลังดาวน์โหลดเวอร์ชัน {version}…", updateFailed: "อัปเดตไม่สำเร็จ ตรวจสอบว่าเข้าถึง GitHub Releases ได้แล้วลองอีกครั้ง",
   settings: "การตั้งค่า", history: "ประวัติ", recent: "คำที่แก้ไขล่าสุด",
   historyHint: "แสดง 100 คำล่าสุดที่โปรแกรมแก้ไข ประวัติจะหายไปเมื่อออกจาก BetterRightLang",
   noHistory: "ยังไม่มีคำที่แก้ไขในครั้งนี้", whitelist: "คำยกเว้น",
@@ -44,6 +55,19 @@ function selectPage(tab) {
     status.textContent = "";
   }
   bridge?.postMessage({ type: "history", value: show });
+}
+
+function renderUpdate(update) {
+  const messages = {
+    unavailable: words.updateUnavailable, checking: words.updateChecking, current: words.updateCurrent,
+    available: words.updateAvailable, downloading: words.updateDownloading, failed: words.updateFailed
+  };
+  appVersion.textContent = words.version.replace("{version}", update.version);
+  updateStatus.textContent = (messages[update.status] ?? "").replace("{version}", update.availableVersion ?? "");
+  updateButton.hidden = update.status === "unavailable";
+  updateButton.setAttribute("aria-disabled", String(update.status === "checking" || update.status === "downloading"));
+  updateButton.dataset.action = update.availableVersion ? "installUpdate" : "checkUpdates";
+  updateButton.textContent = words[updateButton.dataset.action];
 }
 for (const tab of tabs) {
   tab.addEventListener("click", () => selectPage(tab));
@@ -125,6 +149,7 @@ if (bridge) {
     notice.hidden = !state.error;
     notice.textContent = state.error ?? "";
     if (state.error) pendingWord = null;
+    renderUpdate(state.update);
     renderHistory();
   });
   for (const radio of document.querySelectorAll("input[name=mode]")) {
@@ -134,6 +159,9 @@ if (bridge) {
   }
   language.addEventListener("change", () => bridge.postMessage({ type: "language", value: language.value }));
   startup.addEventListener("change", () => bridge.postMessage({ type: "startup", value: startup.checked }));
+  updateButton.addEventListener("click", () => {
+    if (updateButton.getAttribute("aria-disabled") === "false") bridge.postMessage({ type: updateButton.dataset.action });
+  });
   wordInput.addEventListener("input", () => wordInput.setCustomValidity(""));
   document.querySelector("#whitelist-form").addEventListener("submit", event => {
     event.preventDefault();

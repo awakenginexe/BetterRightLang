@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -8,10 +9,13 @@ using System.Threading;
 using System.Windows.Forms;
 using BetterRightLang.Core;
 using Microsoft.Win32;
+using Velopack;
+using Velopack.Sources;
 
 namespace BetterRightLang.Desktop;
 
-internal sealed record WindowState(string Mode, string Language, bool Startup, string? Error);
+internal sealed record WindowState(string Mode, string Language, bool Startup, string? Error, UpdateState Update);
+internal sealed record UpdateState(string Version, string Status, string? AvailableVersion = null);
 
 internal sealed class TrayApp : ApplicationContext
 {
@@ -31,6 +35,9 @@ internal sealed class TrayApp : ApplicationContext
     private volatile SettingsWindow? window;
     private volatile Preferences settings;
     private string? settingError;
+    private readonly UpdateManager updater = new(new GithubSource("https://github.com/awakenginexe/BetterRightLang", null, false));
+    private UpdateInfo? availableUpdate;
+    private string updateStatus;
 
     internal TrayApp(LayoutEngine engine, string appData, WaitHandle signal, bool inTray)
     {
@@ -38,6 +45,7 @@ internal sealed class TrayApp : ApplicationContext
         this.appData = appData;
         settingsFile = Path.Combine(appData, "settings.json");
         settings = Preferences.Load(settingsFile);
+        updateStatus = updater.IsInstalled ? "idle" : "unavailable";
         engine.Whitelist = new WordWhitelist(settings.Whitelist ?? []);
         appIcon = new Icon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         modeIcons = Enum.GetValues<CorrectionMode>().ToDictionary(mode => mode,
@@ -65,7 +73,7 @@ internal sealed class TrayApp : ApplicationContext
         if (window is null || window.IsDisposed)
         {
             window = new SettingsWindow(appData, ReadState, SetMode, SetLanguage, SetStartup,
-                () => new(history.NewestFirst(), engine.Whitelist.Words), SetWhitelist)
+                () => new(history.NewestFirst(), engine.Whitelist.Words), SetWhitelist, RequestUpdate)
             {
                 Icon = appIcon
             };
@@ -175,10 +183,60 @@ internal sealed class TrayApp : ApplicationContext
             startup = string.Equals(key?.GetValue(StartupName) as string, StartupCommand, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception e) when (e is SecurityException or UnauthorizedAccessException or IOException) { settingError = e.Message; }
-        return new(settings.Mode.ToString(), settings.Language, startup, settingError ?? input.StatusError);
+        return new(settings.Mode.ToString(), settings.Language, startup, settingError ?? input.StatusError,
+            new(Application.ProductVersion.Split('+')[0], updateStatus, availableUpdate?.TargetFullRelease.Version.ToString()));
+    }
+
+    private async void RequestUpdate(bool install)
+    {
+        if (!updater.IsInstalled || updateStatus is "checking" or "downloading") return;
+        var update = availableUpdate;
+        if (install && update is null) return;
+
+        SetUpdateStatus(install ? "downloading" : "checking");
+        try
+        {
+            if (install)
+            {
+                await updater.DownloadUpdatesAsync(update!);
+                updater.WaitExitThenApplyUpdates(update!.TargetFullRelease);
+                ExitThread();
+                return;
+            }
+
+            availableUpdate = await updater.CheckForUpdatesAsync();
+            SetUpdateStatus(availableUpdate is null ? "current" : "available");
+        }
+        catch (Exception error)
+        {
+            Trace.TraceError("BetterRightLang update failed: {0}", error);
+            SetUpdateStatus("failed");
+        }
+    }
+
+    private void SetUpdateStatus(string status)
+    {
+        updateStatus = status;
+        window?.UpdateState();
     }
 
     private static string StartupCommand => "\"" + Environment.ProcessPath + "\" --tray";
+
+    internal static void SyncStartupOnInstall(bool uninstall)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(StartupKey, writable: true);
+            if (key?.GetValue(StartupName) is not string command) return;
+            if (!uninstall) key.SetValue(StartupName, StartupCommand);
+            else if (string.Equals(command, StartupCommand, StringComparison.OrdinalIgnoreCase))
+                key.DeleteValue(StartupName, throwOnMissingValue: false);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or SecurityException)
+        {
+            Trace.TraceError("Could not update BetterRightLang startup entry: {0}", e);
+        }
+    }
 
     private void SetStartup(bool enabled)
     {

@@ -23,12 +23,13 @@ internal sealed class SettingsWindow : Form
     private readonly Action<bool> setStartup;
     private readonly Func<HistoryState> readHistory;
     private readonly Action<string, bool> setWhitelist;
+    private readonly Action<bool> requestUpdate;
     private bool historyVisible;
     private bool ready;
 
     internal SettingsWindow(string appData, Func<WindowState> readState,
         Action<CorrectionMode> setMode, Action<string> setLanguage, Action<bool> setStartup,
-        Func<HistoryState> readHistory, Action<string, bool> setWhitelist)
+        Func<HistoryState> readHistory, Action<string, bool> setWhitelist, Action<bool> requestUpdate)
     {
         this.appData = appData;
         this.readState = readState;
@@ -37,6 +38,7 @@ internal sealed class SettingsWindow : Form
         this.setStartup = setStartup;
         this.readHistory = readHistory;
         this.setWhitelist = setWhitelist;
+        this.requestUpdate = requestUpdate;
         Text = "BetterRightLang";
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(880, 650);
@@ -123,6 +125,9 @@ internal sealed class SettingsWindow : Form
                     break;
                 case "whitelistAdd" or "whitelistRemove" when WordWhitelist.IsWord(text):
                     setWhitelist(text!, type.GetString() == "whitelistAdd");
+                    break;
+                case "checkUpdates" or "installUpdate":
+                    requestUpdate(type.GetString() == "installUpdate");
                     break;
             }
         }

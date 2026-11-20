@@ -90,9 +90,10 @@ internal static class Program
 
     private static void CheckWebView(string folder, string? screenshot)
     {
-        var state = new WindowState("Auto", "en", false, null);
+        var state = new WindowState("Auto", "en", false, null, new("0.1.6", "unavailable"));
         var entries = new CorrectionHistory();
         var whitelist = WordWhitelist.Empty;
+        string? updateAction = null;
         var file = Path.Combine(folder, "history-test-settings.json");
         SettingsWindow? active = null;
         using var window = new SettingsWindow(folder, () => state,
@@ -104,7 +105,7 @@ internal static class Program
                 whitelist = whitelist.With(word, add);
                 new Preferences(CorrectionMode.Auto, "en") { Whitelist = whitelist.Words.ToArray() }.Save(file);
                 active!.UpdateHistory();
-            });
+            }, install => updateAction = install ? "install" : "check");
         active = window;
         window.StartPosition = FormStartPosition.Manual;
         window.Location = new Point(-12000, -12000);
@@ -134,6 +135,28 @@ internal static class Program
                 await web.ExecuteScriptAsync("document.querySelector('#sample').setRangeText('hello')");
                 Check(await Read("document.querySelector('#sample').value") == "hello", "practice accepts editing");
                 Check(await web.ExecuteScriptAsync("!document.querySelector('#auto-output, #manual-output')") == "true", "no simulated results");
+                await Until(async () => await web.ExecuteScriptAsync("document.querySelector('#update-button').hidden") == "true", "unpackaged build has no update action");
+                state = state with { Update = new("0.1.6", "idle") };
+                window.UpdateState();
+                await Until(async () => await Read("document.querySelector('#app-version').textContent") == "Version 0.1.6", "installed version shown");
+                await web.ExecuteScriptAsync("document.querySelector('#update-button').click()");
+                await Until(() => Task.FromResult(updateAction == "check"), "check request reaches host");
+                state = state with { Update = new("0.1.6", "checking") };
+                window.UpdateState();
+                await Until(async () => await Read("document.querySelector('#update-button').getAttribute('aria-disabled')") == "true", "busy update button keeps focus but cannot be used");
+                updateAction = null;
+                await web.ExecuteScriptAsync("document.querySelector('#update-button').click()");
+                Check(updateAction is null, "check ignored while busy");
+                state = state with { Update = new("0.1.6", "available", "0.1.7") };
+                window.UpdateState();
+                await Until(async () => await Read("document.querySelector('#update-button').textContent") == "Update and restart", "download requires a second click");
+                Check((await Read("document.querySelector('#update-status').textContent"))?.Contains("0.1.7") == true, "available version shown");
+                await web.ExecuteScriptAsync("document.querySelector('#update-button').click()");
+                await Until(() => Task.FromResult(updateAction == "install"), "install request reaches host");
+                state = state with { Update = new("0.1.6", "failed", "0.1.7") };
+                window.UpdateState();
+                await Until(async () => (await Read("document.querySelector('#update-status[role=status]').textContent"))?.Contains("try again") == true, "update failure announced");
+                Check(await Read("document.querySelector('#update-button').getAttribute('aria-disabled')") == "false", "failed update can be retried");
                 if (screenshot is not null)
                 {
                     using var output = File.Create(screenshot);
@@ -151,6 +174,7 @@ internal static class Program
                 await Until(() => Task.FromResult(state.Language == "th"), "language change");
                 window.UpdateState();
                 await Until(async () => await Read("document.querySelector('legend').textContent") == "โหมดการแก้ไข", "Thai UI");
+                Check(await Read("document.querySelector('#app-version').textContent") == "เวอร์ชัน 0.1.6", "Thai version label");
                 Check(await Read("document.querySelector('#sample').value") == "hello", "language change preserves practice text");
                 Check(await Read("document.querySelector('label[for=sample]').textContent") == "ข้อความสำหรับฝึกพิมพ์", "Thai practice label");
                 await web.ExecuteScriptAsync("document.querySelector('#history-tab').click()");
@@ -178,14 +202,16 @@ internal static class Program
                 window.ClientSize = new Size(510, 480);
                 await Task.Delay(150);
                 Check(await web.ExecuteScriptAsync("document.documentElement.scrollWidth <= innerWidth") == "true", "narrow Thai layout fits");
-                await web.ExecuteScriptAsync("document.querySelector('#settings-tab').click();document.querySelector('#history-tab').click()");
+                await web.ExecuteScriptAsync("document.querySelector('#settings-tab').click()");
+                Check(await web.ExecuteScriptAsync("document.documentElement.scrollWidth <= innerWidth") == "true", "narrow settings layout fits with updates");
+                await web.ExecuteScriptAsync("document.querySelector('#history-tab').click()");
                 await Until(async () => await web.ExecuteScriptAsync("document.querySelectorAll('#corrections li').length") == "3", "return to current session history");
                 Check(new CorrectionHistory().NewestFirst().Length == 0 && Preferences.Load(file).Whitelist.SequenceEqual(new[] { "l;ylfu" }),
                     "fresh session starts empty with its saved whitelist");
                 state = state with { Error = "Unavailable" };
                 window.UpdateState();
                 await Until(async () => await Read("document.querySelector('#notice').textContent") == "Unavailable", "status error visible");
-                Console.WriteLine("Passed WebView2 settings, Thai display, history, whitelist actions, persistence and narrow layout.");
+                Console.WriteLine("Passed WebView2 settings, update actions, Thai display, history, whitelist actions, persistence and narrow layout.");
             }
             catch (Exception e) { failure = e; }
             finally { window.Close(); }

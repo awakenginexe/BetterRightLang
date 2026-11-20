@@ -9,7 +9,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>0.1.5</Version>
+    <Version>0.1.6</Version>
     <Product>BetterRightLang</Product>
     <Description>Thai and English keyboard layout correction for Windows</Description>
   </PropertyGroup>
@@ -17,7 +17,8 @@
     <InternalsVisibleTo Include="BetterRightLang.Desktop.Tests" />
     <ProjectReference Include="..\Core\BetterRightLang.Core.csproj" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" GeneratePathProperty="true" />
-    <Content Include="Web\**\*;Assets\*.ico" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
+    <Content Include="Web\**\*;Assets\*.ico;Notices\*.txt" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\Data\**\*" Link="Data\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\LICENSE;..\README.md" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="$(PkgMicrosoft_Web_WebView2)\LICENSE.txt;$(PkgMicrosoft_Web_WebView2)\NOTICE.txt" Link="Notices\WebView2-%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

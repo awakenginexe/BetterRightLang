@@ -55,6 +55,13 @@
         <span><strong data-t="startup">Start with Windows</strong><small data-t="startupHint">Open in the tray when you sign in.</small></span>
         <input id="startup" type="checkbox" role="switch"><span class="switch" aria-hidden="true"></span>
       </label>
+      <div class="updates">
+        <div>
+          <strong id="app-version"></strong>
+          <p class="helper" id="update-status" role="status"></p>
+        </div>
+        <button type="button" id="update-button" aria-describedby="update-status" hidden>Check for updates</button>
+      </div>
     </footer>
     </section>
     <section id="history-page" role="tabpanel" aria-labelledby="history-tab" hidden>
