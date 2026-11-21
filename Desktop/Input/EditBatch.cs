@@ -30,9 +30,12 @@ internal static class EditBatch
         }
         void FieldEdge(bool end)
         {
+            // Search fields can reserve Home and End for their results. Collapse Select All to the field edge.
             Add(0xa2, 0x1d, 0);
-            Arrow(end ? (ushort)0x23 : (ushort)0x24, end ? (ushort)0x4f : (ushort)0x47, 1);
+            Add(0x41, 0x1e, 0);
+            Add(0x41, 0x1e, Native.KeyUp);
             Add(0xa2, 0x1d, Native.KeyUp);
+            Arrow(end ? (ushort)0x27 : (ushort)0x25, end ? (ushort)0x4d : (ushort)0x4b, 1);
         }
         if (!selected && field is { } edges)
         {
@@ -209,17 +212,23 @@ internal static class EditBatch
 
     internal static Native.Input[] EndPartial(ReadOnlySpan<Native.Input> sent, bool sameField)
     {
-        bool shift = false, control = false, selecting = false;
+        bool shift = false, control = false, selectAllKey = false, selecting = false;
         foreach (var item in sent)
         {
             var key = item.Data.Keyboard;
             var down = (key.Flags & Native.KeyUp) == 0;
             if (key.Key == 0xa0) shift = down;
             if (key.Key == 0xa2) control = down;
-            if (down && key.Key == 0x27 && shift) selecting = true;
+            if (key.Key == 0x41)
+            {
+                selectAllKey = down;
+                if (down && control) selecting = true;
+            }
+            if (down && key.Key is 0x25 or 0x27) selecting = shift;
             if (down && (key.Flags & Native.Unicode) != 0) selecting = false;
         }
         var cleanup = new List<Native.Input>();
+        if (selectAllKey) cleanup.Add(Key(0x41, 0x1e, Native.KeyUp, Tag));
         if (shift) cleanup.Add(Key(0xa0, 0x2a, Native.KeyUp, Tag));
         if (control) cleanup.Add(Key(0xa2, 0x1d, Native.KeyUp, Tag));
         if (selecting && sameField)

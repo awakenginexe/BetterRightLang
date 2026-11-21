@@ -26,7 +26,7 @@ internal static class Program
         if (args.Length == 0 || args.Contains("--help"))
         {
             Console.WriteLine("Opt-in real foreground input; leave keyboard/mouse alone during run.\n" +
-                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto]\n" +
+                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|quick-search|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto]\n" +
                 "--app starts that published executable with --tray if absent; an existing process must match its exact path.\n" +
                 "--expect-app PATH requires that exact executable already running. --self-check does not open apps or send input.");
             return 0;
@@ -41,6 +41,7 @@ internal static class Program
         string Option(string name, string fallback = "") => Array.IndexOf(args, name) is var index && index >= 0 && index + 1 < args.Length ? args[index + 1] : fallback;
         kind = Option("--target", "edge");
         var cases = Option("--case", "all");
+        var quickSearch = cases == "quick-search";
         earlyOverlap = cases == "overlap-early";
         burstOverlap = cases == "overlap-burst";
         overlapCase = cases is "overlap" or "overlap-auto" || earlyOverlap || burstOverlap;
@@ -48,7 +49,8 @@ internal static class Program
         try
         {
             Require(kind is "edge" or "chrome" or "brave-local" or "brave-google" or "notepad" or "practice", "unknown --target");
-            Require(cases is "all" or "auto" or "manual" or "caps" or "whitelist" || overlapCase, "unknown --case");
+            Require(cases is "all" or "auto" or "manual" or "caps" or "whitelist" || quickSearch || overlapCase, "unknown --case");
+            Require(!quickSearch || kind is "edge" or "chrome" or "brave-local", "quick-search requires a local Chromium field");
             Require(!overlapCase || kind is "edge" or "chrome" or "brave-local" or "brave-google", "overlap requires an isolated Chromium editor");
             var app = Path.GetFullPath(Option("--expect-app", Option("--app")));
             publishedApp = app;
@@ -65,7 +67,7 @@ internal static class Program
             initialMode = Mode(); Require(initialMode is "Auto" or "Manual", "start app in Auto or Manual; Paused cannot be toggled through its shortcuts");
             previousWindow = Native.GetForegroundWindow();
             Require(!ModifiersDown(), "release modifiers before running");
-            CreateTarget();
+            CreateTarget(quickSearch);
             Require(TakeFocus(window), "cannot activate owned editor");
             Wait(() => Native.GetForegroundWindow() == window, "owned editor foreground");
             if (kind == "brave-google")
@@ -129,6 +131,7 @@ internal static class Program
             }
             if (cases is "caps" or "all")
                 Run("Left and right Ctrl+CapsLock keep Caps Lock off and on", CheckCapsShortcut);
+            else if (quickSearch) Run("Manual correction in a search field that consumes Home and End", QuickSearch);
             else if (cases == "whitelist") Run("Whitelisted full word and manual override", Whitelisted);
             else if (!overlapCase) Run("Ctrl+CapsLock real registration", () => ToggleMode(Mode() == "Auto" ? "Manual" : "Auto"));
             else if (earlyOverlap || burstOverlap || cases == "overlap") Run("Manual correction with overlapping typing", Overlap);
@@ -196,7 +199,7 @@ internal static class Program
         }
     }
 
-    static void CreateTarget()
+    static void CreateTarget(bool quickSearch)
     {
         directory = Path.Combine(Path.GetTempPath(), tag); Directory.CreateDirectory(directory);
         var existing = Windows().ToHashSet();
@@ -228,9 +231,11 @@ internal static class Program
             executable = new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) }
                 .Select(root => Path.Combine(root, relative)).FirstOrDefault(File.Exists) ?? throw new InvalidOperationException("installed browser not found");
             var html = Path.Combine(directory, "editor.html");
-            File.WriteAllText(html, "<!doctype html><meta charset='utf-8'><title>" + tag + "</title><label for='owned'>Disposable BetterRightLang live test</label><br><textarea id='owned' autofocus rows='12' cols='70'></textarea><script>" +
+            var field = quickSearch ? "<input id='owned' autofocus>" : "<textarea id='owned' autofocus rows='12' cols='70'></textarea>";
+            File.WriteAllText(html, "<!doctype html><meta charset='utf-8'><title>" + tag + "</title><label for='owned'>Disposable BetterRightLang live test</label><br>" + field + "<script>" +
                 "const e=document.getElementById('owned');let held='',caps=0,capsState='';function report(){document.title='" + tag + "|'+(document.hasFocus()&&document.activeElement===e?'focus':'blur')+'|'+encodeURIComponent(e.value)+'|'+e.selectionStart+'|'+e.selectionEnd+'|caps-'+caps+'-'+capsState+(held?'|held-'+held:'');}" +
                 "e.addEventListener('keydown',k=>{if(k.key==='Control'){caps++;capsState=k.getModifierState('CapsLock')?'on':'off';report();}});" +
+                (quickSearch ? "e.addEventListener('keydown',k=>{if(['Home','End','ArrowUp','ArrowDown'].includes(k.key))k.preventDefault();});" : "") +
                 "function stall(event){held=event;report();document.title+='|hold-'+event;const until=performance.now()+1500;while(performance.now()<until){}}" +
                 "function hold(event){if(" + (overlapCase && !earlyOverlap ? "true" : "false") + "&&!held&&e.selectionStart===7&&((e.value==='prefix l;ylfurujg0wf suffix'&&e.selectionEnd===20)||(e.value==='prefix l;ylfu suffix'&&e.selectionEnd===13)))stall(event);}" +
                 (earlyOverlap ? "e.addEventListener('keydown',k=>{if(!held&&k.code==='KeyX'&&e.selectionStart===20&&e.selectionEnd===20&&e.value==='prefix l;ylfurujg0wf suffix')stall('keydown');});" : "") +
@@ -282,11 +287,29 @@ internal static class Program
         Wait(() => Value() == Thai + " " && (uint)(long)Layout() == 0x041e041e, "manual shortcut overrides whitelist and preserves trailing space");
     }
 
+    static void QuickSearch()
+    {
+        EnsureMode("Manual"); Reset(); SetLayout(new nint(0x041e041e));
+        Type("amane", 35);
+        Wait(() => Value() == "ฟทฟืำ", "Thai source in the search field");
+        Chord(0x10, 0x08);
+        Wait(() => Value() == "amane" && (uint)(long)Layout() == 0x04090409, "replace ฟทฟืำ with amane");
+
+        Reset(); Type("prefix  suffix", 25);
+        for (int i = 0; i < " suffix".Length; i++) Key(0x25);
+        SetLayout(new nint(0x041e041e)); Type("amane", 35);
+        Wait(() => Value() == "prefix ฟทฟืำ suffix", "Thai source between adjacent text");
+        Chord(0x10, 0x08);
+        Wait(() => Value() == "prefix amane suffix" && (uint)(long)Layout() == 0x04090409, "preserve both sides of the search term");
+        Type("x", 0);
+        Wait(() => Value() == "prefix amanex suffix", "continued typing starts immediately after amane");
+    }
+
     static void Manual(bool selection)
     {
         EnsureMode("Manual"); Reset(); SetLayout(new nint(0x04090409));
         Type("prefix " + Raw + " suffix", 20);
-        Require(Value() == "prefix " + Raw + " suffix", "manual mode must preserve source typing");
+        Wait(() => Value() == "prefix " + Raw + " suffix", "manual mode must preserve source typing");
         Key(0x24);
         for (int i = 0; i < 7; i++) Key(0x27);
         if (selection)
