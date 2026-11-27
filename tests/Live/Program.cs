@@ -16,8 +16,10 @@ internal static class Program
     static uint processId;
     static AutomationElement? editor;
     static bool initialCaps, capsKnown, ownedWindow, overlapCase, earlyOverlap, burstOverlap, proseMirror, closeWindow = true, cleanupInput = true;
-    // A real ProseMirror editor, pinned on unpkg. Like ChatGPT's message box, it keeps its own Select All state.
-    const string ProseMirrorPage = "<style>.ProseMirror{white-space:pre-wrap;word-wrap:break-word}</style>" +
+    // A real ProseMirror editor, pinned on unpkg. Like ChatGPT's message box, it keeps its own Select All state
+    // and shows a CSS placeholder while empty.
+    const string ProseMirrorPage = "<style>.ProseMirror{white-space:pre-wrap;word-wrap:break-word}" +
+        ".ProseMirror p.placeholder::before{content:attr(data-placeholder);float:left;height:0;pointer-events:none;color:#888}</style>" +
         "<script type='importmap'>{\"imports\":{" +
         "\"orderedmap\":\"https://unpkg.com/orderedmap@2.1.1/dist/index.js\"," +
         "\"w3c-keyname\":\"https://unpkg.com/w3c-keyname@2.2.8/index.js\"," +
@@ -28,9 +30,11 @@ internal static class Program
         "\"prosemirror-keymap\":\"https://unpkg.com/prosemirror-keymap@1.2.2/dist/index.js\"," +
         "\"prosemirror-commands\":\"https://unpkg.com/prosemirror-commands@1.5.2/dist/index.js\"," +
         "\"prosemirror-schema-basic\":\"https://unpkg.com/prosemirror-schema-basic@1.2.2/dist/index.js\"}}</script>" +
-        "<script type='module'>import{schema}from'prosemirror-schema-basic';import{EditorState}from'prosemirror-state';import{EditorView}from'prosemirror-view';" +
+        "<script type='module'>import{schema}from'prosemirror-schema-basic';import{EditorState,Plugin}from'prosemirror-state';import{EditorView,Decoration,DecorationSet}from'prosemirror-view';" +
         "import{keymap}from'prosemirror-keymap';import{baseKeymap}from'prosemirror-commands';" +
-        "const view=new EditorView(document.getElementById('mount'),{state:EditorState.create({schema,plugins:[keymap(baseKeymap)]}),attributes:{id:'owned',role:'textbox','aria-multiline':'true','aria-label':'Disposable BetterRightLang live test'}});" +
+        "const placeholder=new Plugin({props:{decorations(s){const d=s.doc,p=d.firstChild;return d.childCount==1&&p.content.size==0?" +
+        "DecorationSet.create(d,[Decoration.node(0,p.nodeSize,{class:'placeholder','data-placeholder':'Ask anything'})]):null}}});" +
+        "const view=new EditorView(document.getElementById('mount'),{state:EditorState.create({schema,plugins:[keymap(baseKeymap),placeholder]}),attributes:{id:'owned',role:'textbox','aria-multiline':'true','aria-label':'Disposable BetterRightLang live test'}});" +
         "const offset=p=>view.state.doc.textBetween(0,p,'\\n').length;" +
         "Object.defineProperties(view.dom,{value:{get:()=>view.state.doc.textBetween(0,view.state.doc.content.size,'\\n')}," +
         "selectionStart:{get:()=>offset(view.state.selection.from)},selectionEnd:{get:()=>offset(view.state.selection.to)}});";

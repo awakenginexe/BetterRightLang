@@ -345,7 +345,8 @@ public sealed class DesktopInput : IDisposable
                 }
                 typingBaseline = after;
                 if (after is null) ScheduleBaseline();
-                if (snapshot is null || after is null || !snapshot.IsAppendOf(after, edit.Boundary, edit.KeyCount)) return;
+                if (after is null || snapshot?.IsAppendOf(after, edit.Boundary, edit.KeyCount) != true &&
+                    !after.HoldsOnlyTypedText(edit.Boundary, edit.KeyCount)) return;
                 snapshot = after;
             }
             if (snapshot is null) return;
