@@ -233,7 +233,7 @@ internal sealed class ForegroundEditor
         if (!nativeControl && !selected && target.GetAttributeValue(TextPattern.TextFlowDirectionsAttribute) is FlowDirections direction &&
             direction != FlowDirections.Default) return false;
         var keys = native is not null ? EditBatch.NativeMarker() :
-            EditBatch.Build(expected, replacement, selected, selected ? null : FieldEdges(start, source, target));
+            EditBatch.Build(expected, replacement, selected, selected ? null : FieldEdges(start, source, target), suffix);
         bool Validate() => IsCurrent() && (native is null || NativeEdit.Read(Focus) == native) && inputUnchanged();
         return keys is not null && inputUnchanged() && EditBatch.Send(keys, Validate, Foreground, Focus, Layout, destination,
             native is null ? null : () => native.Commit(source, replacement + suffix, selected));

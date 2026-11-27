@@ -15,8 +15,11 @@ internal static class EditBatch
         Type = 1, Data = new Native.InputUnion { Keyboard = new Native.KeyboardInput { Key = key, Scan = scan, Flags = flags, Extra = tag } }
     };
 
+    // Spare arrow presses for characters that reach the field after its caret was read.
+    private const int SpareArrowPresses = 4;
+
     internal static Native.Input[]? Build(string word, string replacement, bool selected,
-        (string Before, string After)? field = null)
+        (string Before, string After)? field = null, string suffix = "")
     {
         if (word.Length == 0 || replacement.Length == 0 || word == replacement) return null;
         if (!selected && field is null) return null;
@@ -28,22 +31,21 @@ internal static class EditBatch
         {
             for (var i = 0; i < count; i++) { Add(key, scan, 1); Add(key, scan, 1 | Native.KeyUp); }
         }
-        void FieldEdge(bool end)
+        void FieldEdge(bool end, string distance)
         {
-            // Search fields can reserve Home and End for their results. Collapse Select All to the field edge.
-            Add(0xa2, 0x1d, 0);
-            Add(0x41, 0x1e, 0);
-            Add(0x41, 0x1e, Native.KeyUp);
-            Add(0xa2, 0x1d, Native.KeyUp);
-            Arrow(end ? (ushort)0x27 : (ushort)0x25, end ? (ushort)0x4d : (ushort)0x4b, 1);
+            // Each arrow press passes one caret stop, so one press per stop plus spares always reaches the field edge.
+            // Search fields can reserve Home and End for their results. Select All is avoided because editors such as
+            // ProseMirror keep their own Select All state and replace everything with the next typed text. Ctrl+Arrow
+            // word jumps depend on each editor's Thai word breaking and can stop short.
+            Arrow(end ? (ushort)0x27 : (ushort)0x25, end ? (ushort)0x4d : (ushort)0x4b, CaretStops(distance) + SpareArrowPresses);
         }
         if (!selected && field is { } edges)
         {
             // Chromium can report the old caret while a character ahead of our batch is still reaching the renderer.
-            FieldEdge(false);
-            Arrow(0x27, 0x4d, StringInfo.ParseCombiningCharacters(edges.Before).Length);
+            FieldEdge(false, edges.Before + word + suffix);
+            Arrow(0x27, 0x4d, CaretStops(edges.Before));
             Add(0xa0, 0x2a, 0);
-            Arrow(0x27, 0x4d, StringInfo.ParseCombiningCharacters(word).Length);
+            Arrow(0x27, 0x4d, CaretStops(word));
             Add(0xa0, 0x2a, Native.KeyUp);
         }
         foreach (var c in replacement)
@@ -53,11 +55,13 @@ internal static class EditBatch
         }
         if (!selected && field is { } end)
         {
-            FieldEdge(true);
-            Arrow(0x25, 0x4b, StringInfo.ParseCombiningCharacters(end.After).Length);
+            FieldEdge(true, suffix + end.After);
+            Arrow(0x25, 0x4b, CaretStops(end.After));
         }
         return input.ToArray();
     }
+
+    private static int CaretStops(string text) => StringInfo.ParseCombiningCharacters(text).Length;
 
     // The queue lives only between the first accepted edit event and the last replayed key in the same field.
     internal static bool Send(Native.Input[] input, Func<bool> validate, nint foreground, nint focus, nint sourceLayout, nint destinationLayout,
@@ -212,23 +216,17 @@ internal static class EditBatch
 
     internal static Native.Input[] EndPartial(ReadOnlySpan<Native.Input> sent, bool sameField)
     {
-        bool shift = false, control = false, selectAllKey = false, selecting = false;
+        bool shift = false, control = false, selecting = false;
         foreach (var item in sent)
         {
             var key = item.Data.Keyboard;
             var down = (key.Flags & Native.KeyUp) == 0;
             if (key.Key == 0xa0) shift = down;
             if (key.Key == 0xa2) control = down;
-            if (key.Key == 0x41)
-            {
-                selectAllKey = down;
-                if (down && control) selecting = true;
-            }
             if (down && key.Key is 0x25 or 0x27) selecting = shift;
             if (down && (key.Flags & Native.Unicode) != 0) selecting = false;
         }
         var cleanup = new List<Native.Input>();
-        if (selectAllKey) cleanup.Add(Key(0x41, 0x1e, Native.KeyUp, Tag));
         if (shift) cleanup.Add(Key(0xa0, 0x2a, Native.KeyUp, Tag));
         if (control) cleanup.Add(Key(0xa2, 0x1d, Native.KeyUp, Tag));
         if (selecting && sameField)

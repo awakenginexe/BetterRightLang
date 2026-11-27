@@ -55,10 +55,14 @@ internal static class Program
             Check(new string(presses.Where(k => (k.Flags & Native.Unicode) != 0).Select(k => (char)k.Scan).ToArray()) == "l;ylfurujg0wf", "Unicode replacement stays in order");
             Check(EditBatch.Build("a", "b", true)!.Length == 2, "existing user selection is replaced directly");
             Check(EditBatch.Build("a", "b", false) is null, "current-word editing requires verified field edges");
-            var anchored = EditBatch.Build("abc", "ค", false, ("e\u0301 ", " z"))!.Select(i => i.Data.Keyboard)
+            // The text before the caret has six caret stops and the text after the word has three; each edge gets spare arrow presses.
+            var anchored = EditBatch.Build("abc", "ค", false, ("e\u0301 ", " z"), " ")!.Select(i => i.Data.Keyboard)
                 .Where(k => (k.Flags & Native.KeyUp) == 0).Select(k => (int)k.Key).ToArray();
-            Check(anchored.SequenceEqual(new[] { 0xa2, 0x41, 0x25, 0x27, 0x27, 0xa0, 0x27, 0x27, 0x27, 0, 0xa2, 0x41, 0x27, 0x25, 0x25 }),
-                "Chromium locates both edges when the rendered caret advances and Home/End are reserved");
+            Check(anchored.SequenceEqual(Enumerable.Repeat(0x25, 6 + 4).Concat(new[] { 0x27, 0x27, 0xa0, 0x27, 0x27, 0x27, 0 })
+                .Concat(Enumerable.Repeat(0x27, 3 + 4)).Concat(new[] { 0x25, 0x25 })),
+                "Chromium reaches both field edges by single arrow presses when the rendered caret advances and Home/End are reserved");
+            Check(!EditBatch.Build("abc", "x", false, ("prefix ", ""))!.Any(i => i.Data.Keyboard.Key is 0xa2 or 0x41),
+                "corrections never send Ctrl shortcuts such as Select All, which ProseMirror replaces entirely with the next typed character");
             Check(EditBatch.Build("a", "\r", false, ("", "")) is null, "generic input never synthesizes Enter");
             Check(EditBatch.NativeMarker().Single().Data.Keyboard.Flags == (Native.Unicode | Native.KeyUp), "native edit uses a harmless key-up marker");
             var firstSelection = Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x27);
@@ -67,11 +71,9 @@ internal static class Program
                 "a partially submitted selection releases Shift and collapses at its end");
             Check(EditBatch.EndPartial(interrupted, false).Single().Data.Keyboard.Flags == Native.KeyUp,
                 "interrupted input releases the modifier without moving another field's caret");
-            var selectAll = keys.AsSpan(0, Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x41) + 1);
-            Check(EditBatch.EndPartial(selectAll, true).Select(k => k.Data.Keyboard.Key).SequenceEqual(new ushort[] { 0x41, 0xa2, 0x27, 0x27 }),
-                "interrupted Select All releases its keys and collapses the selection in the same field");
-            Check(EditBatch.EndPartial(selectAll, false).All(k => k.Data.Keyboard.Flags == Native.KeyUp),
-                "interrupted Select All leaves another field's caret alone");
+            var edgeMove = keys.AsSpan(0, Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x25) + 1);
+            Check(EditBatch.EndPartial(edgeMove, true).Length == 0 && EditBatch.EndPartial(edgeMove, false).Length == 0,
+                "an interrupted move to the field edge leaves no key held and no selection");
             Lifecycle(engine);
             Console.WriteLine($"PASS {checks} native input checks.");
             return 0;

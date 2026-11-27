@@ -15,7 +15,25 @@ internal static class Program
     static nint window, previousWindow, initialLayout;
     static uint processId;
     static AutomationElement? editor;
-    static bool initialCaps, capsKnown, ownedWindow, overlapCase, earlyOverlap, burstOverlap, closeWindow = true, cleanupInput = true;
+    static bool initialCaps, capsKnown, ownedWindow, overlapCase, earlyOverlap, burstOverlap, proseMirror, closeWindow = true, cleanupInput = true;
+    // A real ProseMirror editor, pinned on unpkg. Like ChatGPT's message box, it keeps its own Select All state.
+    const string ProseMirrorPage = "<style>.ProseMirror{white-space:pre-wrap;word-wrap:break-word}</style>" +
+        "<script type='importmap'>{\"imports\":{" +
+        "\"orderedmap\":\"https://unpkg.com/orderedmap@2.1.1/dist/index.js\"," +
+        "\"w3c-keyname\":\"https://unpkg.com/w3c-keyname@2.2.8/index.js\"," +
+        "\"prosemirror-model\":\"https://unpkg.com/prosemirror-model@1.19.4/dist/index.js\"," +
+        "\"prosemirror-transform\":\"https://unpkg.com/prosemirror-transform@1.8.0/dist/index.js\"," +
+        "\"prosemirror-state\":\"https://unpkg.com/prosemirror-state@1.4.3/dist/index.js\"," +
+        "\"prosemirror-view\":\"https://unpkg.com/prosemirror-view@1.32.7/dist/index.js\"," +
+        "\"prosemirror-keymap\":\"https://unpkg.com/prosemirror-keymap@1.2.2/dist/index.js\"," +
+        "\"prosemirror-commands\":\"https://unpkg.com/prosemirror-commands@1.5.2/dist/index.js\"," +
+        "\"prosemirror-schema-basic\":\"https://unpkg.com/prosemirror-schema-basic@1.2.2/dist/index.js\"}}</script>" +
+        "<script type='module'>import{schema}from'prosemirror-schema-basic';import{EditorState}from'prosemirror-state';import{EditorView}from'prosemirror-view';" +
+        "import{keymap}from'prosemirror-keymap';import{baseKeymap}from'prosemirror-commands';" +
+        "const view=new EditorView(document.getElementById('mount'),{state:EditorState.create({schema,plugins:[keymap(baseKeymap)]}),attributes:{id:'owned',role:'textbox','aria-multiline':'true','aria-label':'Disposable BetterRightLang live test'}});" +
+        "const offset=p=>view.state.doc.textBetween(0,p,'\\n').length;" +
+        "Object.defineProperties(view.dom,{value:{get:()=>view.state.doc.textBetween(0,view.state.doc.content.size,'\\n')}," +
+        "selectionStart:{get:()=>offset(view.state.selection.from)},selectionEnd:{get:()=>offset(view.state.selection.to)}});";
     static ClientWebSocket? cdp;
     static int requestId;
     static uint launchedProcess;
@@ -26,7 +44,7 @@ internal static class Program
         if (args.Length == 0 || args.Contains("--help"))
         {
             Console.WriteLine("Opt-in real foreground input; leave keyboard/mouse alone during run.\n" +
-                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|quick-search|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto]\n" +
+                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|quick-search|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto] [--editor textarea|prosemirror]\n" +
                 "--app starts that published executable with --tray if absent; an existing process must match its exact path.\n" +
                 "--expect-app PATH requires that exact executable already running. --self-check does not open apps or send input.");
             return 0;
@@ -45,6 +63,8 @@ internal static class Program
         earlyOverlap = cases == "overlap-early";
         burstOverlap = cases == "overlap-burst";
         overlapCase = cases is "overlap" or "overlap-auto" || earlyOverlap || burstOverlap;
+        var editorKind = Option("--editor", "textarea");
+        proseMirror = editorKind == "prosemirror";
         int failures = 0;
         try
         {
@@ -52,6 +72,8 @@ internal static class Program
             Require(cases is "all" or "auto" or "manual" or "caps" or "whitelist" || quickSearch || overlapCase, "unknown --case");
             Require(!quickSearch || kind is "edge" or "chrome" or "brave-local", "quick-search requires a local Chromium field");
             Require(!overlapCase || kind is "edge" or "chrome" or "brave-local" or "brave-google", "overlap requires an isolated Chromium editor");
+            Require(editorKind is "textarea" or "prosemirror", "unknown --editor");
+            Require(!proseMirror || kind is "edge" or "chrome" or "brave-local" && !quickSearch && !overlapCase, "prosemirror requires a local Chromium target and a non-overlap, non-search case");
             var app = Path.GetFullPath(Option("--expect-app", Option("--app")));
             publishedApp = app;
             Require(File.Exists(app), "supply exact published app executable with --app or --expect-app");
@@ -122,6 +144,12 @@ internal static class Program
                 Run("Auto fast", () => Auto(0));
                 Run("Auto paced", () => Auto(170));
                 Run("Auto continuous", () => Auto(80));
+                Run("Auto keeps text before the word", () =>
+                {
+                    EnsureMode("Auto"); Reset(); SetLayout(new nint(0x04090409)); Thread.Sleep(250);
+                    Type("prefix " + Raw, 90);
+                    Wait(() => Value() == "prefix " + Thai && (uint)(long)Layout() == 0x041e041e, "earlier text kept and Thai HKL", 5000);
+                });
                 Run("Auto Thai keyboard to English", () =>
                 {
                     Reset(); SetLayout(new nint(0x041e041e)); Thread.Sleep(250);
@@ -232,14 +260,17 @@ internal static class Program
                 .Select(root => Path.Combine(root, relative)).FirstOrDefault(File.Exists) ?? throw new InvalidOperationException("installed browser not found");
             var html = Path.Combine(directory, "editor.html");
             var field = quickSearch ? "<input id='owned' autofocus>" : "<textarea id='owned' autofocus rows='12' cols='70'></textarea>";
-            File.WriteAllText(html, "<!doctype html><meta charset='utf-8'><title>" + tag + "</title><label for='owned'>Disposable BetterRightLang live test</label><br>" + field + "<script>" +
+            var script =
                 "const e=document.getElementById('owned');let held='',caps=0,capsState='';function report(){document.title='" + tag + "|'+(document.hasFocus()&&document.activeElement===e?'focus':'blur')+'|'+encodeURIComponent(e.value)+'|'+e.selectionStart+'|'+e.selectionEnd+'|caps-'+caps+'-'+capsState+(held?'|held-'+held:'');}" +
                 "e.addEventListener('keydown',k=>{if(k.key==='Control'){caps++;capsState=k.getModifierState('CapsLock')?'on':'off';report();}});" +
                 (quickSearch ? "e.addEventListener('keydown',k=>{if(['Home','End','ArrowUp','ArrowDown'].includes(k.key))k.preventDefault();});" : "") +
                 "function stall(event){held=event;report();document.title+='|hold-'+event;const until=performance.now()+1500;while(performance.now()<until){}}" +
                 "function hold(event){if(" + (overlapCase && !earlyOverlap ? "true" : "false") + "&&!held&&e.selectionStart===7&&((e.value==='prefix l;ylfurujg0wf suffix'&&e.selectionEnd===20)||(e.value==='prefix l;ylfu suffix'&&e.selectionEnd===13)))stall(event);}" +
                 (earlyOverlap ? "e.addEventListener('keydown',k=>{if(!held&&k.code==='KeyX'&&e.selectionStart===20&&e.selectionEnd===20&&e.value==='prefix l;ylfurujg0wf suffix')stall('keydown');});" : "") +
-                "document.addEventListener('selectionchange',()=>hold('selectionchange'));e.addEventListener('beforeinput',()=>hold('beforeinput'));['input','select','keyup','focus','blur'].forEach(k=>e.addEventListener(k,report));document.addEventListener('selectionchange',report);window.addEventListener('blur',report);window.addEventListener('focus',report);setInterval(report,50);e.focus();report();</script>");
+                "document.addEventListener('selectionchange',()=>hold('selectionchange'));e.addEventListener('beforeinput',()=>hold('beforeinput'));['input','select','keyup','focus','blur'].forEach(k=>e.addEventListener(k,report));document.addEventListener('selectionchange',report);window.addEventListener('blur',report);window.addEventListener('focus',report);setInterval(report,50);e.focus();report();";
+            File.WriteAllText(html, "<!doctype html><meta charset='utf-8'><title>" + tag + "</title>" + (proseMirror
+                ? "<p>Disposable ProseMirror editor</p><div id='mount'></div>" + ProseMirrorPage + "{" + script + "}</script>"
+                : "<label for='owned'>Disposable BetterRightLang live test</label><br>" + field + "<script>" + script + "</script>"));
             var start = new ProcessStartInfo(executable) { ArgumentList = { "--user-data-dir=" + Path.Combine(directory, "profile"), "--no-first-run", "--no-default-browser-check" }, UseShellExecute = false };
             if (kind == "brave-google")
             {
