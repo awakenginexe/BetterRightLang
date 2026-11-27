@@ -1,0 +1,3 @@
+# Thai words added by hand because LibThai lacks them, such as common informal spellings.
+# One word per line. Lines starting with # are comments.
+เห้ย

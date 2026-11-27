@@ -24,8 +24,15 @@ public sealed class LayoutEngine
 
     public LayoutEngine(string englishPath, string thaiPath)
     {
-        english = new Words(englishPath);
-        thai = new Words(thaiPath);
+        english = new Words(WithAdditions(englishPath));
+        thai = new Words(WithAdditions(thaiPath));
+    }
+
+    // Words added by hand live beside a generated list, such as th-extra.txt beside th.txt.
+    private static string[] WithAdditions(string path)
+    {
+        var extra = Path.Combine(Path.GetDirectoryName(path) ?? "", Path.GetFileNameWithoutExtension(path) + "-extra.txt");
+        return File.Exists(extra) ? [path, extra] : [path];
     }
 
     public string? Suggest(WordSpan word, string context, bool atBoundary)
@@ -141,12 +148,12 @@ public sealed class LayoutEngine
         private readonly string[] sorted;
         private readonly int maxLength;
 
-        public Words(string path)
+        public Words(string[] paths)
         {
-            exact = File.ReadLines(path).Select(line => line.Trim().ToLowerInvariant())
+            exact = paths.SelectMany(path => File.ReadLines(path)).Select(line => line.Trim().ToLowerInvariant())
                 .Where(line => line.Length > 0 && !line.StartsWith('#'))
                 .ToHashSet(StringComparer.Ordinal);
-            if (exact.Count == 0) throw new InvalidDataException($"Dictionary is empty: {path}");
+            if (exact.Count == 0) throw new InvalidDataException($"Dictionary is empty: {paths[0]}");
             sorted = exact.Order(StringComparer.Ordinal).ToArray();
             maxLength = sorted.Max(word => word.Length);
         }

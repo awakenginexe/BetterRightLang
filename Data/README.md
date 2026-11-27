@@ -7,3 +7,5 @@
 To reproduce, check out the two commits above. For English, combine `sources/{english,american}-words.{10,20,35}`, decode as Latin-1, retain lines consisting only of ASCII letters, lowercase, deduplicate and sort. For Thai, combine LibThai `data/tdict-{std,std-compound,common,slang,ict}.txt`, decode as UTF-8, retain nonempty lines consisting only of Thai-block characters U+0E00–U+0E7F, deduplicate and sort. Write each result as UTF-8, one word per line with LF endings. LibThai’s `tdict-spell.txt`, which contains known misspellings, is excluded.
 
 LibThai is a word-break dictionary. Thai phrases often contain several entries without spaces. Names, slang and newly coined words can also be absent.
+
+`th-extra.txt` holds Thai words added by hand, such as common informal spellings that LibThai lacks. The engine loads it together with `th.txt`. A file named `en-extra.txt` beside `en.txt` would be loaded the same way.

@@ -94,6 +94,10 @@ try
     Equal<string?>(null, real.Suggest("www.example.com", true), "dotted web address stays literal");
     Equal("สวัสดีพี่เจได", real.Suggest("l;ylfurujg0wf", true), "user acceptance boundary");
     Equal<string?>(null, real.Suggest("สวัสดีครับ", true), "real corpus correct compound");
+    Equal("เห้ย", real.Suggest("gshp", true), "hand-added informal spelling from th-extra.txt");
+    File.WriteAllLines(Path.Combine(directory, "th-extra.txt"), ["# added by hand", "เห้ย"]);
+    Equal("เห้ย", new LayoutEngine(en, th).Suggest("gshp", true), "an -extra list beside the main list is loaded too");
+    Equal<string?>(null, engine.Suggest("gshp", true), "an engine built before the -extra list existed is unchanged");
     var keys = "l;ylfurujg0wf";
     var typed = "";
     var switched = false;
