@@ -63,6 +63,9 @@ internal static class Program
                 "Chromium reaches both field edges by single arrow presses when the rendered caret advances and Home/End are reserved");
             Check(!EditBatch.Build("abc", "x", false, ("prefix ", ""))!.Any(i => i.Data.Keyboard.Key is 0xa2 or 0x41),
                 "corrections never send Ctrl shortcuts such as Select All, which ProseMirror replaces entirely with the next typed character");
+            Check(EditBatch.CaretStopAtOrBefore("สวัสดี ้ำสสน ", 7) == 6, "a word starting with a Thai mark begins at the space it joins");
+            Check(EditBatch.CaretStopAtOrBefore("hello world", 6) == 6 && EditBatch.CaretStopAtOrBefore("้ำสสน", 0) == 0,
+                "a plain word start is already a caret stop");
             Check(EditBatch.Build("a", "\r", false, ("", "")) is null, "generic input never synthesizes Enter");
             Check(EditBatch.NativeMarker().Single().Data.Keyboard.Flags == (Native.Unicode | Native.KeyUp), "native edit uses a harmless key-up marker");
             var firstSelection = Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x27);

@@ -222,6 +222,13 @@ internal sealed class ForegroundEditor
     internal bool Replace(int start, int length, string expected, string replacement, bool selected, nint destination, Func<bool> inputUnchanged, bool appended)
     {
         if (length != expected.Length || !selected && (start < 0 || start > Context.Length - length)) return false;
+        if (!selected)
+        {
+            // Replace the character that shares the word's first caret stop too, and type it back unchanged.
+            var stop = EditBatch.CaretStopAtOrBefore(Context, start);
+            var joined = Context[stop..start];
+            (start, length, expected, replacement) = (stop, length + joined.Length, joined + expected, joined + replacement);
+        }
         var suffix = selected ? "" : Context[(start + length)..];
         if (!appended && suffix.Any(c => !char.IsWhiteSpace(c))) return false;
         var source = expected + suffix;

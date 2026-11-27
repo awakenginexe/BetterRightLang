@@ -63,6 +63,18 @@ internal static class EditBatch
 
     private static int CaretStops(string text) => StringInfo.ParseCombiningCharacters(text).Length;
 
+    // A Thai mark at the start of a word joins the character before it, so the caret cannot stop between them.
+    internal static int CaretStopAtOrBefore(string text, int index)
+    {
+        var stop = 0;
+        foreach (var start in StringInfo.ParseCombiningCharacters(text))
+        {
+            if (start > index) break;
+            stop = start;
+        }
+        return stop;
+    }
+
     // The queue lives only between the first accepted edit event and the last replayed key in the same field.
     internal static bool Send(Native.Input[] input, Func<bool> validate, nint foreground, nint focus, nint sourceLayout, nint destinationLayout,
         Func<bool>? nativeEdit = null)

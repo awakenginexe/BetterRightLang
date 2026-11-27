@@ -150,6 +150,13 @@ internal static class Program
                     Type("prefix " + Raw, 90);
                     Wait(() => Value() == "prefix " + Thai && (uint)(long)Layout() == 0x041e041e, "earlier text kept and Thai HKL", 5000);
                 });
+                Run("Auto switches both ways, including a word that starts with a Thai mark", () =>
+                {
+                    // On the Thai keyboard, hello starts with the tone mark ้, which joins the space before it.
+                    EnsureMode("Auto"); Reset(); SetLayout(new nint(0x04090409)); Thread.Sleep(250);
+                    Type("8e;jk hello", 90);
+                    Wait(() => Value() == "คำว่า hello" && (uint)(long)Layout() == 0x04090409, "คำว่า, then hello typed on the Thai keyboard, and US HKL", 5000);
+                });
                 Run("Auto Thai keyboard to English", () =>
                 {
                     Reset(); SetLayout(new nint(0x041e041e)); Thread.Sleep(250);
