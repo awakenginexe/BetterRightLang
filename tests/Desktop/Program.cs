@@ -199,7 +199,8 @@ internal static class Program
                 await Until(async () => await web.ExecuteScriptAsync("document.querySelectorAll('#whitelist li').length") == "2", "direct Thai entry");
                 await web.ExecuteScriptAsync("document.querySelector('#whitelist [data-word=\"ชื่อเล่น\"]').click()");
                 await Until(async () => await web.ExecuteScriptAsync("document.querySelectorAll('#whitelist li').length") == "1", "remove saved word");
-                window.ClientSize = new Size(510, 480);
+                // Logical pixels, so the page gets the same CSS width at any display scale.
+                window.ClientSize = window.LogicalToDeviceUnits(new Size(510, 480));
                 await Task.Delay(150);
                 Check(await web.ExecuteScriptAsync("document.documentElement.scrollWidth <= innerWidth") == "true", "narrow Thai layout fits");
                 await web.ExecuteScriptAsync("document.querySelector('#settings-tab').click()");
