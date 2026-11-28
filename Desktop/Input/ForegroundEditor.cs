@@ -211,6 +211,14 @@ internal sealed class ForegroundEditor
         return growth.GetText(257).Length == inserted.Length;
     }
 
+    // A field that now holds only the typed keys needs no match with this snapshot's text. Empty editors such as
+    // ChatGPT's message box report a CSS placeholder as their text, so that snapshot never matches the first typed word.
+    // The field must still differ from the snapshot: one that rejected every key, such as a full field, keeps its text.
+    internal bool IsReplacedByTypedText(ForegroundEditor after, bool boundary, int maximumKeys) =>
+        after.fieldValue is not null && after.fieldValue != fieldValue && after.SelectedText.Length == 0 &&
+        after.followingText.All(c => c == '\n') && after.fieldValue == after.Context + after.followingText &&
+        IsTypedAppend(after.Context, boundary, maximumKeys);
+
     private static bool IsTypedAppend(string inserted, bool boundary, int maximumKeys) =>
         inserted.Length is > 0 and <= 256 && inserted.Replace("\r\n", "\n", StringComparison.Ordinal).Length <= maximumKeys &&
         char.IsWhiteSpace(inserted[^1]) == boundary && !inserted.Any(c => char.IsControl(c) && c is not '\r' and not '\n' and not '\t');
@@ -222,6 +230,13 @@ internal sealed class ForegroundEditor
     internal bool Replace(int start, int length, string expected, string replacement, bool selected, nint destination, Func<bool> inputUnchanged, bool appended)
     {
         if (length != expected.Length || !selected && (start < 0 || start > Context.Length - length)) return false;
+        if (!selected)
+        {
+            // Replace the character that shares the word's first caret stop too, and type it back unchanged.
+            var stop = EditBatch.CaretStopAtOrBefore(Context, start);
+            var joined = Context[stop..start];
+            (start, length, expected, replacement) = (stop, length + joined.Length, joined + expected, joined + replacement);
+        }
         var suffix = selected ? "" : Context[(start + length)..];
         if (!appended && suffix.Any(c => !char.IsWhiteSpace(c))) return false;
         var source = expected + suffix;
@@ -233,7 +248,7 @@ internal sealed class ForegroundEditor
         if (!nativeControl && !selected && target.GetAttributeValue(TextPattern.TextFlowDirectionsAttribute) is FlowDirections direction &&
             direction != FlowDirections.Default) return false;
         var keys = native is not null ? EditBatch.NativeMarker() :
-            EditBatch.Build(expected, replacement, selected, selected ? null : FieldEdges(start, source, target));
+            EditBatch.Build(expected, replacement, selected, selected ? null : FieldEdges(start, source, target), suffix);
         bool Validate() => IsCurrent() && (native is null || NativeEdit.Read(Focus) == native) && inputUnchanged();
         return keys is not null && inputUnchanged() && EditBatch.Send(keys, Validate, Foreground, Focus, Layout, destination,
             native is null ? null : () => native.Commit(source, replacement + suffix, selected));

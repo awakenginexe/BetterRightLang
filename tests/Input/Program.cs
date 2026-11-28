@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -55,10 +56,33 @@ internal static class Program
             Check(new string(presses.Where(k => (k.Flags & Native.Unicode) != 0).Select(k => (char)k.Scan).ToArray()) == "l;ylfurujg0wf", "Unicode replacement stays in order");
             Check(EditBatch.Build("a", "b", true)!.Length == 2, "existing user selection is replaced directly");
             Check(EditBatch.Build("a", "b", false) is null, "current-word editing requires verified field edges");
-            var anchored = EditBatch.Build("abc", "ค", false, ("e\u0301 ", " z"))!.Select(i => i.Data.Keyboard)
+            // The text before the caret has six caret stops and the text after the word has three; each edge gets spare arrow presses.
+            var anchored = EditBatch.Build("abc", "ค", false, ("e\u0301 ", " z"), " ")!.Select(i => i.Data.Keyboard)
                 .Where(k => (k.Flags & Native.KeyUp) == 0).Select(k => (int)k.Key).ToArray();
-            Check(anchored.SequenceEqual(new[] { 0xa2, 0x41, 0x25, 0x27, 0x27, 0xa0, 0x27, 0x27, 0x27, 0, 0xa2, 0x41, 0x27, 0x25, 0x25 }),
-                "Chromium locates both edges when the rendered caret advances and Home/End are reserved");
+            Check(anchored.SequenceEqual(new[] { 0xa2, 0x24 }.Concat(Enumerable.Repeat(0x25, 6 + 4)).Concat(new[] { 0x27, 0x27, 0xa0, 0x27, 0x27, 0x27, 0, 0xa2, 0x23 })
+                .Concat(Enumerable.Repeat(0x27, 3 + 4)).Concat(new[] { 0x25, 0x25 })),
+                "Ctrl+Home and Ctrl+End reach both field edges, followed by arrow presses for fields that consume Home and End");
+            var edgeKeys = EditBatch.Build("abc", "x", false, ("prefix ", ""))!.Select(i => i.Data.Keyboard).ToArray();
+            bool control = false, onlyEdgesUnderControl = true;
+            foreach (var key in edgeKeys)
+            {
+                if (key.Key == 0xa2) control = (key.Flags & Native.KeyUp) == 0;
+                else if (control && key.Key is not (0x23 or 0x24)) onlyEdgesUnderControl = false;
+            }
+            Check(onlyEdgesUnderControl && !control && !edgeKeys.Any(k => k.Key == 0x41),
+                "Ctrl is held only for Home and End; Select All, which ProseMirror replaces entirely with the next typed character, is never sent");
+            // Characters typed after the caret was read can reach the field ahead of the batch. They stay, and the caret follows them.
+            var correction = EditBatch.Build("l;ylfurujg0wf", "สวัสดีพี่เจได", false, ("prefix ", " suffix"))!;
+            foreach (var (extra, consumesHomeEnd) in new[] { (0, false), (1, false), (8, false), (40, false), (0, true), (4, true) })
+            {
+                var early = new string('x', extra);
+                var (text, caret) = ApplyToFieldModel("prefix l;ylfurujg0wf" + early + " suffix", 20 + extra, correction, consumesHomeEnd);
+                Check(text == "prefix สวัสดีพี่เจได" + early + " suffix" && caret == ("prefix สวัสดีพี่เจได" + early).Length,
+                    $"{extra} characters ahead of the batch are kept and followed by the caret" + (consumesHomeEnd ? " in a field that consumes Home and End" : ""));
+            }
+            Check(EditBatch.CaretStopAtOrBefore("สวัสดี ้ำสสน ", 7) == 6, "a word starting with a Thai mark begins at the space it joins");
+            Check(EditBatch.CaretStopAtOrBefore("hello world", 6) == 6 && EditBatch.CaretStopAtOrBefore("้ำสสน", 0) == 0,
+                "a plain word start is already a caret stop");
             Check(EditBatch.Build("a", "\r", false, ("", "")) is null, "generic input never synthesizes Enter");
             Check(EditBatch.NativeMarker().Single().Data.Keyboard.Flags == (Native.Unicode | Native.KeyUp), "native edit uses a harmless key-up marker");
             var firstSelection = Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x27);
@@ -67,11 +91,13 @@ internal static class Program
                 "a partially submitted selection releases Shift and collapses at its end");
             Check(EditBatch.EndPartial(interrupted, false).Single().Data.Keyboard.Flags == Native.KeyUp,
                 "interrupted input releases the modifier without moving another field's caret");
-            var selectAll = keys.AsSpan(0, Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x41) + 1);
-            Check(EditBatch.EndPartial(selectAll, true).Select(k => k.Data.Keyboard.Key).SequenceEqual(new ushort[] { 0x41, 0xa2, 0x27, 0x27 }),
-                "interrupted Select All releases its keys and collapses the selection in the same field");
-            Check(EditBatch.EndPartial(selectAll, false).All(k => k.Data.Keyboard.Flags == Native.KeyUp),
-                "interrupted Select All leaves another field's caret alone");
+            var edgeMove = keys.AsSpan(0, Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x25) + 1);
+            Check(EditBatch.EndPartial(edgeMove, true).Length == 0 && EditBatch.EndPartial(edgeMove, false).Length == 0,
+                "an interrupted move to the field edge leaves no key held and no selection");
+            var edgeKey = keys.AsSpan(0, Array.FindIndex(keys, k => k.Data.Keyboard.Key == 0x24) + 1);
+            var released = EditBatch.EndPartial(edgeKey, true);
+            Check(released.Select(k => k.Data.Keyboard.Key).SequenceEqual(new ushort[] { 0x24, 0xa2 }) && released.All(k => (k.Data.Keyboard.Flags & Native.KeyUp) != 0),
+                "an interrupted Ctrl+Home releases Home and Ctrl and moves nothing else");
             Lifecycle(engine);
             Console.WriteLine($"PASS {checks} native input checks.");
             return 0;
@@ -264,6 +290,44 @@ internal static class Program
         before = OffThread(() => ForegroundEditor.ReadSelection(AutomationElement.FromHandle(handle), false));
         Check(OffThread(() => before!.FindReplacementRange("สวัสดีพี่เจได ", false)?.GetText(100)) == "สวัสดีพี่เจได ", "Thai marks located by text rather than character-unit offsets");
         Check(OffThread(() => before!.FindReplacementRange("prefix", false)) is null, "replacement must end at verified caret");
+    }
+
+    // A plain field: each caret stop is a text element, and Ctrl+Home and Ctrl+End reach its edges unless it consumes them.
+    private static (string Text, int Caret) ApplyToFieldModel(string text, int caret, Native.Input[] batch, bool consumesHomeEnd)
+    {
+        var anchor = caret;
+        bool shift = false, control = false;
+        int Step(int from, int direction)
+        {
+            var stops = StringInfo.ParseCombiningCharacters(text).Append(text.Length).ToArray();
+            return direction < 0 ? stops.Where(s => s < from).DefaultIfEmpty(0).Max() : stops.Where(s => s > from).DefaultIfEmpty(text.Length).Min();
+        }
+        foreach (var input in batch)
+        {
+            var key = input.Data.Keyboard;
+            var down = (key.Flags & Native.KeyUp) == 0;
+            if (key.Key == 0xa0) shift = down;
+            else if (key.Key == 0xa2) control = down;
+            else if (down && (key.Flags & Native.Unicode) != 0)
+            {
+                var start = Math.Min(anchor, caret);
+                text = text[..start] + (char)key.Scan + text[Math.Max(anchor, caret)..];
+                caret = anchor = start + 1;
+            }
+            else if (down && key.Key is 0x23 or 0x24 or 0x25 or 0x27)
+            {
+                if (key.Key is 0x23 or 0x24 && (!control || consumesHomeEnd)) continue;
+                caret = key.Key switch
+                {
+                    0x24 => 0,
+                    0x23 => text.Length,
+                    _ when !shift && anchor != caret => key.Key == 0x25 ? Math.Min(anchor, caret) : Math.Max(anchor, caret),
+                    _ => Step(caret, key.Key == 0x25 ? -1 : 1),
+                };
+                if (!shift) anchor = caret;
+            }
+        }
+        return (text, caret);
     }
 
     private static T OffThread<T>(Func<T> action)
