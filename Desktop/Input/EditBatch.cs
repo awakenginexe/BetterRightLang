@@ -15,7 +15,7 @@ internal static class EditBatch
         Type = 1, Data = new Native.InputUnion { Keyboard = new Native.KeyboardInput { Key = key, Scan = scan, Flags = flags, Extra = tag } }
     };
 
-    // Spare arrow presses for characters that reach the field after its caret was read.
+    // Spare arrow presses for characters that reach a field after its caret was read, where Ctrl+Home and Ctrl+End are consumed.
     private const int SpareArrowPresses = 4;
 
     internal static Native.Input[]? Build(string word, string replacement, bool selected,
@@ -33,10 +33,14 @@ internal static class EditBatch
         }
         void FieldEdge(bool end, string distance)
         {
-            // Each arrow press passes one caret stop, so one press per stop plus spares always reaches the field edge.
-            // Search fields can reserve Home and End for their results. Select All is avoided because editors such as
-            // ProseMirror keep their own Select All state and replace everything with the next typed text. Ctrl+Arrow
-            // word jumps depend on each editor's Thai word breaking and can stop short.
+            // Ctrl+Home and Ctrl+End reach the field edge however many characters arrived after the caret was read.
+            // They only move the caret. Select All is avoided because editors such as ProseMirror keep their own Select
+            // All state and replace everything with the next typed text. Search fields can consume Home and End for
+            // their results, so arrow presses follow: one per caret stop plus spares. Ctrl+Arrow word jumps depend on
+            // each editor's Thai word breaking and can stop short.
+            Add(0xa2, 0x1d, 0);
+            Arrow(end ? (ushort)0x23 : (ushort)0x24, end ? (ushort)0x4f : (ushort)0x47, 1);
+            Add(0xa2, 0x1d, Native.KeyUp);
             Arrow(end ? (ushort)0x27 : (ushort)0x25, end ? (ushort)0x4d : (ushort)0x4b, CaretStops(distance) + SpareArrowPresses);
         }
         if (!selected && field is { } edges)
@@ -229,16 +233,19 @@ internal static class EditBatch
     internal static Native.Input[] EndPartial(ReadOnlySpan<Native.Input> sent, bool sameField)
     {
         bool shift = false, control = false, selecting = false;
+        ushort edgeKey = 0;
         foreach (var item in sent)
         {
             var key = item.Data.Keyboard;
             var down = (key.Flags & Native.KeyUp) == 0;
             if (key.Key == 0xa0) shift = down;
             if (key.Key == 0xa2) control = down;
+            if (key.Key is 0x23 or 0x24) edgeKey = down ? key.Key : (ushort)0;
             if (down && key.Key is 0x25 or 0x27) selecting = shift;
             if (down && (key.Flags & Native.Unicode) != 0) selecting = false;
         }
         var cleanup = new List<Native.Input>();
+        if (edgeKey != 0) cleanup.Add(Key(edgeKey, edgeKey == 0x23 ? (ushort)0x4f : (ushort)0x47, 1 | Native.KeyUp, Tag));
         if (shift) cleanup.Add(Key(0xa0, 0x2a, Native.KeyUp, Tag));
         if (control) cleanup.Add(Key(0xa2, 0x1d, Native.KeyUp, Tag));
         if (selecting && sameField)

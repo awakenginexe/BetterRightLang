@@ -48,7 +48,7 @@ internal static class Program
         if (args.Length == 0 || args.Contains("--help"))
         {
             Console.WriteLine("Opt-in real foreground input; leave keyboard/mouse alone during run.\n" +
-                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|quick-search|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto] [--editor textarea|prosemirror]\n" +
+                "dotnet run --project tests/Live -c Release -- --run --target edge|chrome|brave-local|brave-google|notepad|practice --app PATH [--case all|auto|manual|quick-search|full-field|caps|whitelist|overlap|overlap-early|overlap-burst|overlap-auto] [--editor textarea|prosemirror]\n" +
                 "--app starts that published executable with --tray if absent; an existing process must match its exact path.\n" +
                 "--expect-app PATH requires that exact executable already running. --self-check does not open apps or send input.");
             return 0;
@@ -64,6 +64,7 @@ internal static class Program
         kind = Option("--target", "edge");
         var cases = Option("--case", "all");
         var quickSearch = cases == "quick-search";
+        var fullField = cases == "full-field";
         earlyOverlap = cases == "overlap-early";
         burstOverlap = cases == "overlap-burst";
         overlapCase = cases is "overlap" or "overlap-auto" || earlyOverlap || burstOverlap;
@@ -73,11 +74,12 @@ internal static class Program
         try
         {
             Require(kind is "edge" or "chrome" or "brave-local" or "brave-google" or "notepad" or "practice", "unknown --target");
-            Require(cases is "all" or "auto" or "manual" or "caps" or "whitelist" || quickSearch || overlapCase, "unknown --case");
-            Require(!quickSearch || kind is "edge" or "chrome" or "brave-local", "quick-search requires a local Chromium field");
+            Require(cases is "all" or "auto" or "manual" or "caps" or "whitelist" || quickSearch || fullField || overlapCase, "unknown --case");
+            Require(!quickSearch && !fullField || kind is "edge" or "chrome" or "brave-local", "quick-search and full-field require a local Chromium field");
             Require(!overlapCase || kind is "edge" or "chrome" or "brave-local" or "brave-google", "overlap requires an isolated Chromium editor");
             Require(editorKind is "textarea" or "prosemirror", "unknown --editor");
-            Require(!proseMirror || kind is "edge" or "chrome" or "brave-local" && !quickSearch && !overlapCase, "prosemirror requires a local Chromium target and a non-overlap, non-search case");
+            Require(!proseMirror || kind is "edge" or "chrome" or "brave-local" && !quickSearch && !fullField && (!overlapCase || earlyOverlap),
+                "prosemirror requires a local Chromium target and a non-search, non-full-field case; of the overlap cases, only overlap-early");
             var app = Path.GetFullPath(Option("--expect-app", Option("--app")));
             publishedApp = app;
             Require(File.Exists(app), "supply exact published app executable with --app or --expect-app");
@@ -93,7 +95,7 @@ internal static class Program
             initialMode = Mode(); Require(initialMode is "Auto" or "Manual", "start app in Auto or Manual; Paused cannot be toggled through its shortcuts");
             previousWindow = Native.GetForegroundWindow();
             Require(!ModifiersDown(), "release modifiers before running");
-            CreateTarget(quickSearch);
+            CreateTarget(quickSearch, fullField);
             Require(TakeFocus(window), "cannot activate owned editor");
             Wait(() => Native.GetForegroundWindow() == window, "owned editor foreground");
             if (kind == "brave-google")
@@ -171,6 +173,7 @@ internal static class Program
             if (cases is "caps" or "all")
                 Run("Left and right Ctrl+CapsLock keep Caps Lock off and on", CheckCapsShortcut);
             else if (quickSearch) Run("Manual correction in a search field that consumes Home and End", QuickSearch);
+            else if (fullField) Run("Auto leaves a full field that rejected every key unchanged", FullField);
             else if (cases == "whitelist") Run("Whitelisted full word and manual override", Whitelisted);
             else if (!overlapCase) Run("Ctrl+CapsLock real registration", () => ToggleMode(Mode() == "Auto" ? "Manual" : "Auto"));
             else if (earlyOverlap || burstOverlap || cases == "overlap") Run("Manual correction with overlapping typing", Overlap);
@@ -238,7 +241,7 @@ internal static class Program
         }
     }
 
-    static void CreateTarget(bool quickSearch)
+    static void CreateTarget(bool quickSearch, bool fullField)
     {
         directory = Path.Combine(Path.GetTempPath(), tag); Directory.CreateDirectory(directory);
         var existing = Windows().ToHashSet();
@@ -270,7 +273,8 @@ internal static class Program
             executable = new[] { Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) }
                 .Select(root => Path.Combine(root, relative)).FirstOrDefault(File.Exists) ?? throw new InvalidOperationException("installed browser not found");
             var html = Path.Combine(directory, "editor.html");
-            var field = quickSearch ? "<input id='owned' autofocus>" : "<textarea id='owned' autofocus rows='12' cols='70'></textarea>";
+            var field = quickSearch ? "<input id='owned' autofocus>" : fullField ? "<input id='owned' autofocus maxlength='6' value='l;ylfu'>" :
+                "<textarea id='owned' autofocus rows='12' cols='70'></textarea>";
             var script =
                 "const e=document.getElementById('owned');let held='',caps=0,capsState='';function report(){document.title='" + tag + "|'+(document.hasFocus()&&document.activeElement===e?'focus':'blur')+'|'+encodeURIComponent(e.value)+'|'+e.selectionStart+'|'+e.selectionEnd+'|caps-'+caps+'-'+capsState+(held?'|held-'+held:'');}" +
                 "e.addEventListener('keydown',k=>{if(k.key==='Control'){caps++;capsState=k.getModifierState('CapsLock')?'on':'off';report();}});" +
@@ -278,7 +282,8 @@ internal static class Program
                 "function stall(event){held=event;report();document.title+='|hold-'+event;const until=performance.now()+1500;while(performance.now()<until){}}" +
                 "function hold(event){if(" + (overlapCase && !earlyOverlap ? "true" : "false") + "&&!held&&e.selectionStart===7&&((e.value==='prefix l;ylfurujg0wf suffix'&&e.selectionEnd===20)||(e.value==='prefix l;ylfu suffix'&&e.selectionEnd===13)))stall(event);}" +
                 (earlyOverlap ? "e.addEventListener('keydown',k=>{if(!held&&k.code==='KeyX'&&e.selectionStart===20&&e.selectionEnd===20&&e.value==='prefix l;ylfurujg0wf suffix')stall('keydown');});" : "") +
-                "document.addEventListener('selectionchange',()=>hold('selectionchange'));e.addEventListener('beforeinput',()=>hold('beforeinput'));['input','select','keyup','focus','blur'].forEach(k=>e.addEventListener(k,report));document.addEventListener('selectionchange',report);window.addEventListener('blur',report);window.addEventListener('focus',report);setInterval(report,50);e.focus();report();";
+                "document.addEventListener('selectionchange',()=>hold('selectionchange'));e.addEventListener('beforeinput',()=>hold('beforeinput'));['input','select','keyup','focus','blur'].forEach(k=>e.addEventListener(k,report));document.addEventListener('selectionchange',report);window.addEventListener('blur',report);window.addEventListener('focus',report);setInterval(report,50);e.focus();" +
+                (fullField ? "e.setSelectionRange(6,6);" : "") + "report();";
             File.WriteAllText(html, "<!doctype html><meta charset='utf-8'><title>" + tag + "</title>" + (proseMirror
                 ? "<p>Disposable ProseMirror editor</p><div id='mount'></div>" + ProseMirrorPage + "{" + script + "}</script>"
                 : "<label for='owned'>Disposable BetterRightLang live test</label><br>" + field + "<script>" + script + "</script>"));
@@ -347,6 +352,17 @@ internal static class Program
         Wait(() => Value() == "prefix amanex suffix", "continued typing starts immediately after amane");
     }
 
+    static void FullField()
+    {
+        // The field is full, so it rejects every key. Six fast keys match the length of the text it already holds.
+        Wait(() => Value() == "l;ylfu", "full field holds l;ylfu");
+        EnsureMode("Auto"); SetLayout(new nint(0x04090409));
+        Key(0x23); Thread.Sleep(400);
+        Type("xxxxxx", 0);
+        Thread.Sleep(1500);
+        Require(Value() == "l;ylfu" && (uint)(long)Layout() == 0x04090409, "a field that rejected every key keeps its text and keyboard");
+    }
+
     static void Manual(bool selection)
     {
         EnsureMode("Manual"); Reset(); SetLayout(new nint(0x04090409));
@@ -379,8 +395,8 @@ internal static class Program
     static void Overlap()
     {
         EnsureMode("Manual"); Reset(); SetLayout(new nint(0x04090409));
-        var extra = burstOverlap ? "wmp" : "x";
-        var converted = burstOverlap ? "ไทย" : "ป";
+        var extra = earlyOverlap ? "xxxxxxxx" : burstOverlap ? "wmp" : "x";
+        var converted = earlyOverlap ? "ปปปปปปปป" : burstOverlap ? "ไทย" : "ป";
         Type("prefix " + Raw + " suffix", 20);
         Wait(() => Value() == "prefix " + Raw + " suffix", "overlap source text");
         Key(0x24);
@@ -392,7 +408,8 @@ internal static class Program
             var focusedControl = FocusedControl();
             Chord(0x10, 0x08);
             Require(Native.GetForegroundWindow() == window && OwnedIdentity() && FocusedControl() == focusedControl, "owned editor changed before early typing");
-            SendEvents(new[] { Event(0x58, false), Event(0x58, true) });
+            // The renderer holds the first key; the rest queue behind it, so all eight reach the field ahead of the correction.
+            SendEvents(PhysicalKeys(extra).SelectMany(k => new[] { Event(k, false), Event(k, true) }).ToArray());
             if (kind != "brave-google") Wait(() => Title(window).Contains("|held-keydown"), "renderer held the incoming key before insertion");
             held = kind == "brave-google" ? "" : "keydown";
         }

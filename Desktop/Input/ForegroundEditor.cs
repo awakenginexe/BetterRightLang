@@ -211,11 +211,13 @@ internal sealed class ForegroundEditor
         return growth.GetText(257).Length == inserted.Length;
     }
 
-    // A field holding only the typed keys needs no earlier snapshot. Empty editors such as ChatGPT's message box
-    // report a CSS placeholder as their text, so that snapshot never matches the first typed word.
-    internal bool HoldsOnlyTypedText(bool boundary, int maximumKeys) =>
-        fieldValue is not null && SelectedText.Length == 0 && followingText.All(c => c == '\n') &&
-        fieldValue == Context + followingText && IsTypedAppend(Context, boundary, maximumKeys);
+    // A field that now holds only the typed keys needs no match with this snapshot's text. Empty editors such as
+    // ChatGPT's message box report a CSS placeholder as their text, so that snapshot never matches the first typed word.
+    // The field must still differ from the snapshot: one that rejected every key, such as a full field, keeps its text.
+    internal bool IsReplacedByTypedText(ForegroundEditor after, bool boundary, int maximumKeys) =>
+        after.fieldValue is not null && after.fieldValue != fieldValue && after.SelectedText.Length == 0 &&
+        after.followingText.All(c => c == '\n') && after.fieldValue == after.Context + after.followingText &&
+        IsTypedAppend(after.Context, boundary, maximumKeys);
 
     private static bool IsTypedAppend(string inserted, bool boundary, int maximumKeys) =>
         inserted.Length is > 0 and <= 256 && inserted.Replace("\r\n", "\n", StringComparison.Ordinal).Length <= maximumKeys &&
